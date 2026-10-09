@@ -102,6 +102,25 @@ class Estimateur:
         prix = prix_m2 * surface
         prix_bas = min(q10, q90) * surface
         prix_haut = max(q10, q90) * surface
+
+
+        # valeurs SHAP calculées par LightGBM, en €/m² ; la dernière colonne est la valeur de base
+        contributions = self.modele.predict(X, pred_contrib=True)[0]
+        facteurs = pd.Series(contributions[:-1] * surface, index=VARIABLES)
+        facteurs = facteurs.reindex(facteurs.abs().sort_values(ascending=False).index)
+
+        return {
+            "adresse": label,
+            "latitude": latitude,
+            "longitude": longitude,
+            "prix": prix,
+            "prix_m2": prix_m2,
+            "prix_bas": min(prix_bas, prix),
+            "prix_haut": max(prix_haut, prix),
+            "base": contributions[-1] * surface,
+            "facteurs": facteurs,
+            "comparables": self.comparables(latitude, longitude, type_local, surface),
+        }
     def prix(self, latitude, longitude, type_local, surface, pieces, dependances=0, terrain=0):
         """Prix estimé seul, à partir de coordonnées déjà connues (sans géocodage)."""
         X = self.variables(latitude, longitude, type_local, surface, pieces, dependances, terrain)
