@@ -1,4 +1,8 @@
 """Application Streamlit : estimer le prix d'un logement à Montpellier."""
+
+
+import pydeck as pdk
+from pydeck.types import String
 import sys
 from pathlib import Path
 
@@ -45,9 +49,10 @@ def euros(x):
 
 st.title("Estimateur de prix immobilier à Montpellier")
 st.caption(
-    "Modèle LightGBM entraîné sur les ventes DVF 2021-2024 et testé sur 2025. "
-    "Estimation indicative, à but pédagogique."
-)
+        "En rouge : le bien estimé. En bleu : les ventes du tableau. "
+        "Plusieurs numéros sur un même point = ventes dans le même immeuble. Survole un point pour voir les adresses."
+    )
+
 
 with st.form("formulaire"):
     adresse = st.text_input("Adresse à Montpellier", placeholder="Exemple : 10 rue de la Loge, Montpellier")
@@ -93,26 +98,59 @@ if valider:
         f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface, puis chaque "
         "caractéristique l'augmente (en vert) ou le diminue (en rouge). Méthode : valeurs SHAP."
     )
-
     st.markdown("#### Ventes comparables à proximité")
-    comp = r["comparables"]
-    points = pd.concat([
-        pd.DataFrame({"lat": [r["latitude"]], "lon": [r["longitude"]], "couleur": ["#c62828"]}),
-        pd.DataFrame({"lat": comp["latitude"], "lon": comp["longitude"], "couleur": "#1565c0"}),
-    ])
-    st.map(points, latitude="lat", longitude="lon", color="couleur", size=25, zoom=15)
-    st.caption("En rouge : le bien estimé. En bleu : les ventes comparables.")
+    comp = r["comparables"].reset_index(drop=True)
+    numero_rue = comp["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
+    comp["adresse"] = (numero_rue + " " + comp["adresse_nom_voie"].str.title()).str.strip()
+    comp["repere"] = [str(i + 1) for i in range(len(comp))]
 
-    numero = comp["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
+        # une ligne de description par vente, pour l'infobulle
+    comp["info"] = [
+        f"{n}. {a} : {euros(p)} ({s:.0f} m²)"
+        for n, a, p, s in zip(comp["repere"], comp["adresse"], comp["valeur_fonciere"], comp["surface_reelle_bati"])
+    ]
+    # les ventes au même endroit (même immeuble) sont regroupées sur un seul point
+    comp["cle"] = comp["latitude"].round(5).astype(str) + "," + comp["longitude"].round(5).astype(str)
+    groupes = comp.groupby("cle", sort=False).agg(
+        lat=("latitude", "first"),
+        lon=("longitude", "first"),
+        repere=("repere", ", ".join),
+        info=("info", "\n".join),
+    ).reset_index(drop=True)
+
+    bien = pd.DataFrame({
+        "lat": [r["latitude"]], "lon": [r["longitude"]],
+        "repere": [""], "info": [f"Bien estimé : {r['adresse']}"],
+    })
+    points = pd.concat([bien, groupes], ignore_index=True)
+    points["couleur"] = [[198, 40, 40]] + [[21, 101, 192]] * len(groupes)
+
+    cercles = pdk.Layer(
+        "ScatterplotLayer", data=points, get_position="[lon, lat]", get_fill_color="couleur",
+        get_radius=8, radius_min_pixels=11, radius_max_pixels=16, pickable=True,
+        stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1.5,
+    )
+    numeros = pdk.Layer(
+        "TextLayer", data=points[points["repere"] != ""], get_position="[lon, lat]", get_text="repere",
+        get_size=12, get_color=[255, 255, 255],
+        get_text_anchor=String("middle"), get_alignment_baseline=String("center"),
+    )
+    vue = pdk.ViewState(latitude=r["latitude"], longitude=r["longitude"], zoom=16)
+    st.pydeck_chart(pdk.Deck(layers=[cercles, numeros], initial_view_state=vue, tooltip={"text": "{info}"}))
+    st.caption("En rouge : le bien estimé. En bleu, numérotées : les ventes du tableau. Survole un point pour voir son adresse.")
+
     tableau = pd.DataFrame({
+        "N°": comp["repere"],
         "Date": comp["date_mutation"].dt.strftime("%m/%Y"),
-        "Adresse": (numero + " " + comp["adresse_nom_voie"].str.title()).str.strip(),
+        "Adresse": comp["adresse"],
         "Surface (m²)": comp["surface_reelle_bati"].round(),
         "Pièces": comp["nombre_pieces_principales"],
         "Prix": comp["valeur_fonciere"].map(euros),
         "Prix au m²": comp["prix_m2"].map(euros),
         "Distance (m)": comp["distance_m"].round(),
     })
+    st.dataframe(tableau, hide_index=True, use_container_width=True)
+
     st.dataframe(tableau, hide_index=True, use_container_width=True)
 
 with st.expander("Limites de ce modèle"):
