@@ -5,6 +5,7 @@ import pydeck as pdk
 from pydeck.types import String
 import sys
 from pathlib import Path
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -89,7 +90,16 @@ if valider:
     principaux = r["facteurs"].head(8).rename(index=NOMS)[::-1]
     fig, ax = plt.subplots(figsize=(7, 4))
     couleurs = ["#2e7d32" if v > 0 else "#c62828" for v in principaux.values]
-    ax.barh(principaux.index, principaux.values, color=couleurs)
+    barres = ax.barh(principaux.index, principaux.values, color=couleurs)
+
+    # axe avec une partie négative toujours visible, en k€
+    ecart = principaux.abs().max()
+    ax.set_xlim(min(principaux.min(), -0.25 * ecart) * 1.3, max(principaux.max(), 0.25 * ecart) * 1.3)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=7))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: "0" if x == 0 else f"{x / 1000:+.0f} k€"))
+
+    # valeur écrite au bout de chaque barre
+    ax.bar_label(barres, labels=[f"{v / 1000:+.0f} k€" for v in principaux.values], padding=3, fontsize=8)
     ax.axvline(0, color="grey", linewidth=0.8)
     ax.set_xlabel("Effet sur le prix (€)")
     fig.tight_layout()
@@ -149,7 +159,7 @@ if valider:
         "Prix au m²": comp["prix_m2"].map(euros),
         "Distance (m)": comp["distance_m"].round(),
     })
-    st.dataframe(tableau, hide_index=True, use_container_width=True)
+    
 
     st.dataframe(tableau, hide_index=True, use_container_width=True)
 
