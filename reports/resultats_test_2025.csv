@@ -1,0 +1,3 @@
+,MAE (€),MAPE (%),Erreur médiane (%),Part à ±10 % (%),Couverture fourchette (%)
+Baseline,44673.3,26.4,17.6,28.4,
+LightGBM final,31396.9,16.9,10.8,46.7,73.2

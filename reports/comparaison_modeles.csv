@@ -1,0 +1,5 @@
+,MAE (€),MAPE (%),Erreur médiane (%),Part à ±10 % (%)
+Baseline (médiane code postal),46960.4,30.0,18.8,28.4
+Régression linéaire (Ridge),42806.5,26.7,16.4,31.9
+Random Forest,32316.0,19.2,11.6,44.9
+LightGBM,32238.6,19.3,11.4,45.2

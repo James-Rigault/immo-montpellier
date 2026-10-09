@@ -225,3 +225,5 @@ data/processed/
 *.html
 data/external/
 cache/
+models/
+reports/*.parquet

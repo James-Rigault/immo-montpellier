@@ -10,7 +10,7 @@ SORTIE = PROCESSED_DIR / "ventes_clean.parquet"
 LOGEMENTS = ["Appartement", "Maison"]
 SURFACE_MIN, SURFACE_MAX = 9, 400  # m² : en dessous ou au-dessus, ce sont presque toujours des erreurs
 QUANTILE_BAS, QUANTILE_HAUT = 0.01, 0.99  # on retire le 1 % le moins cher et le 1 % le plus cher au m²
-
+SEUIL_RELATIF = 0.3  # une vente à moins de 30 % du prix au m² médian local est jugée anormale
 
 def charger_brut(raw_dir=RAW_DIR):
     """Charge et assemble tous les fichiers DVF téléchargés."""
@@ -71,6 +71,17 @@ def construire_ventes(locaux, resume):
     )
     return ventes.reset_index(drop=True)
 
+def retirer_prix_anormaux(v, seuil=SEUIL_RELATIF):
+    """Retire les ventes très en dessous du prix local : viagers, ventes partielles, ventes familiales..."""
+    annee = v["date_mutation"].dt.year
+    mediane_locale = v.groupby([v["code_postal"], v["type_local"], annee])["prix_m2"].transform("median")
+    return v[v["prix_m2"] >= seuil * mediane_locale]
+
+
+
+
+
+
 
 def filtrer_aberrations(ventes):
     """Retire les données manquantes, les surfaces impossibles et les prix au m² extrêmes."""
@@ -78,6 +89,7 @@ def filtrer_aberrations(ventes):
     v = v[v["surface_reelle_bati"].between(SURFACE_MIN, SURFACE_MAX)]
     v = v[v["nombre_pieces_principales"] >= 1]
     v = v.assign(prix_m2=v["valeur_fonciere"] / v["surface_reelle_bati"])
+    v = retirer_prix_anormaux(v)  # nouvelle ligne
     # bornes calculées séparément pour les appartements et les maisons
     bornes = v.groupby("type_local")["prix_m2"].quantile([QUANTILE_BAS, QUANTILE_HAUT]).unstack()
     bas = v["type_local"].map(bornes[QUANTILE_BAS])
@@ -98,6 +110,16 @@ def nettoyer(df):
     etapes["Après filtres"] = len(propres)
     return propres, etapes
 
+def test_retirer_prix_anormaux():
+    """Médiane locale = 3 900 €/m², seuil = 30 % = 1 170 €/m² : la vente à 600 €/m² est retirée."""
+    v = pd.DataFrame({
+        "code_postal": ["34000"] * 4,
+        "type_local": ["Appartement"] * 4,
+        "date_mutation": pd.to_datetime(["2024-01-01"] * 4),
+        "prix_m2": [4000, 4200, 3800, 600],
+    })
+    gardees = retirer_prix_anormaux(v)
+    assert list(gardees["prix_m2"]) == [4000, 4200, 3800]
 
 def main():
     df = charger_brut()

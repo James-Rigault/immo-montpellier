@@ -6,3 +6,8 @@ folium
 jupyter
 geopandas
 osmnx
+scikit-learn
+lightgbm
+joblib
+optuna
+shap
