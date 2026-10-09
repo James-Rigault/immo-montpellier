@@ -174,42 +174,42 @@ if "resultat" in st.session_state:
     
 
     st.dataframe(tableau, hide_index=True, use_container_width=True)
-st.markdown("#### Et si… ? Simule des changements")
-st.caption("Modifie les caractéristiques du bien : le prix est recalculé au même emplacement.")
-bien = st.session_state["bien"]
-estimateur = charger_estimateur()
+    st.markdown("#### Et si… ? Simule des changements")
+    st.caption("Modifie les caractéristiques du bien : le prix est recalculé au même emplacement.")
+    bien = st.session_state["bien"]
+    estimateur = charger_estimateur()
 
-col1, col2 = st.columns(2)
-sim_type = col1.radio(
-    "Type de bien", ["Appartement", "Maison"],
-    index=["Appartement", "Maison"].index(bien["type_local"]), horizontal=True, key="sim_type",
-)
-sim_surface = col2.slider("Surface (m²)", 9, 250, int(bien["surface"]), key="sim_surface")
-sim_pieces = col1.slider("Nombre de pièces", 1, 10, int(bien["pieces"]), key="sim_pieces")
-sim_dep = col2.slider("Caves et parkings", 0, 3, int(bien["dependances"]), key="sim_dep")
+    col1, col2 = st.columns(2)
+    sim_type = col1.radio(
+        "Type de bien", ["Appartement", "Maison"],
+        index=["Appartement", "Maison"].index(bien["type_local"]), horizontal=True, key="sim_type",
+    )
+    sim_surface = col2.slider("Surface (m²)", 9, 250, int(bien["surface"]), key="sim_surface")
+    sim_pieces = col1.slider("Nombre de pièces", 1, 10, int(bien["pieces"]), key="sim_pieces")
+    sim_dep = col2.slider("Caves et parkings", 0, 3, int(bien["dependances"]), key="sim_dep")
 
-prix_sim = estimateur.prix(
-        r["latitude"], r["longitude"], sim_type, sim_surface, sim_pieces, sim_dep, bien["terrain"]
-    )
-ecart = prix_sim - r["prix"]
-col1, col2 = st.columns(2)
-col1.metric(
-        "Prix simulé", euros(prix_sim),
-        delta=f"{ecart:+,.0f} € par rapport à l'estimation".replace(",", "\u202f") if round(ecart) else None,
-    )
-col2.metric("Prix au m² simulé", euros(prix_sim / sim_surface).replace("€", "€/m²"))
+    prix_sim = estimateur.prix(
+            r["latitude"], r["longitude"], sim_type, sim_surface, sim_pieces, sim_dep, bien["terrain"]
+        )
+    ecart = prix_sim - r["prix"]
+    col1, col2 = st.columns(2)
+    col1.metric(
+            "Prix simulé", euros(prix_sim),
+            delta=f"{ecart:+,.0f} € par rapport à l'estimation".replace(",", "\u202f") if round(ecart) else None,
+        )
+    col2.metric("Prix au m² simulé", euros(prix_sim / sim_surface).replace("€", "€/m²"))
 
-    # courbe : comment évolue le prix avec la surface, à cet endroit
-surfaces = list(range(15, 201, 5))
-prix_courbe = estimateur.prix_selon_surface(
-        r["latitude"], r["longitude"], sim_type, sim_pieces, sim_dep, bien["terrain"], surfaces
-    )
-courbe = pd.DataFrame({"Surface (m²)": surfaces, "Prix estimé (€)": prix_courbe}).set_index("Surface (m²)")
-st.line_chart(courbe)
-st.caption(
-        f"Prix estimé selon la surface, pour un bien de {sim_pieces} pièce(s) à cette adresse. "
-        "Le prix n'est pas toujours proportionnel à la surface : le prix au m² baisse souvent pour les grandes surfaces."
-    )
+        # courbe : comment évolue le prix avec la surface, à cet endroit
+    surfaces = list(range(15, 201, 5))
+    prix_courbe = estimateur.prix_selon_surface(
+            r["latitude"], r["longitude"], sim_type, sim_pieces, sim_dep, bien["terrain"], surfaces
+        )
+    courbe = pd.DataFrame({"Surface (m²)": surfaces, "Prix estimé (€)": prix_courbe}).set_index("Surface (m²)")
+    st.line_chart(courbe)
+    st.caption(
+            f"Prix estimé selon la surface, pour un bien de {sim_pieces} pièce(s) à cette adresse. "
+            "Le prix n'est pas toujours proportionnel à la surface : le prix au m² baisse souvent pour les grandes surfaces."
+        )
 
 with st.expander("Limites de ce modèle"):
     st.markdown(
