@@ -13,7 +13,7 @@ import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from predict import AdresseIntrouvable, Estimateur  # noqa: E402
+from predict import AdresseIntrouvable, Estimateur, suggestions  # noqa: E402
 
 NOMS = {
     "surface_reelle_bati": "Surface",
@@ -42,7 +42,10 @@ st.set_page_config(page_title="Estimateur immobilier Montpellier", page_icon="�
 def charger_estimateur():
     """Chargé une seule fois au démarrage de l'app."""
     return Estimateur()
-
+@st.cache_data(ttl=3600, show_spinner=False)
+def chercher_adresses(texte):
+    """Suggestions d'adresses, gardées en mémoire une heure."""
+    return suggestions(texte)
 
 def euros(x):
     return f"{x:,.0f} €".replace(",", "\u202f")
@@ -54,9 +57,23 @@ st.caption(
         "Plusieurs numéros sur un même point = ventes dans le même immeuble. Survole un point pour voir les adresses."
     )
 
-
+texte = st.text_input(
+    "Adresse à Montpellier",
+    placeholder="Tape le début de l'adresse puis appuie sur Entrée, ex. : 10 rue de la Loge",
+)
+adresse = ""
+if texte.strip():
+    try:
+        propositions = chercher_adresses(texte)
+    except requests.RequestException:
+        propositions = []
+        st.warning("Le service d'adresses ne répond pas. Réessaie dans un instant.")
+    if propositions:
+        adresse = st.selectbox("Choisis l'adresse exacte", propositions)
+    elif len(texte.strip()) >= 3:
+        st.info("Aucune adresse trouvée à Montpellier. Vérifie l'orthographe.")
 with st.form("formulaire"):
-    adresse = st.text_input("Adresse à Montpellier", placeholder="Exemple : 10 rue de la Loge, Montpellier")
+    
     col1, col2 = st.columns(2)
     type_local = col1.radio("Type de bien", ["Appartement", "Maison"], horizontal=True)
     surface = col2.number_input("Surface habitable (m²)", min_value=9, max_value=400, value=60)
@@ -66,8 +83,8 @@ with st.form("formulaire"):
     valider = st.form_submit_button("Estimer le prix", type="primary")
 
 if valider:
-    if not adresse.strip():
-        st.warning("Indique une adresse.")
+    if not adresse:
+        st.warning("Tape une adresse et choisis-la dans la liste des suggestions.")
         st.stop()
     try:
         with st.spinner("Calcul en cours..."):

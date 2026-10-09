@@ -42,7 +42,20 @@ def geocoder(adresse):
         raise AdresseIntrouvable(adresse)
     longitude, latitude = resultats[0]["geometry"]["coordinates"]
     return latitude, longitude, proprietes["label"]
-
+def suggestions(texte, n=5):
+    """Propose jusqu'à n adresses officielles de Montpellier correspondant au texte tapé."""
+    if len(texte.strip()) < 3:
+        return []
+    reponse = requests.get(
+        URL_GEOCODAGE, params={"q": texte, "citycode": CODE_COMMUNE, "limit": n}, timeout=10
+    )
+    reponse.raise_for_status()
+    adresses = []
+    for resultat in reponse.json().get("features", []):
+        proprietes = resultat["properties"]
+        if proprietes.get("citycode") == CODE_COMMUNE and proprietes["label"] not in adresses:
+            adresses.append(proprietes["label"])
+    return adresses
 
 class Estimateur:
     """Charge une seule fois les modèles et les données, puis estime autant de biens que voulu."""
