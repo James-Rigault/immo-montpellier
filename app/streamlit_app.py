@@ -1,19 +1,20 @@
 """Application Streamlit : estimer le prix d'un logement à Montpellier."""
 
 
-import pydeck as pdk
-from pydeck.types import String
+"""Application Streamlit : estimer le prix d'un logement à Montpellier."""
 import sys
 from pathlib import Path
-from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import pydeck as pdk
 import requests
 import streamlit as st
+from matplotlib.ticker import FuncFormatter, MaxNLocator
+from pydeck.types import String
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from predict import AdresseIntrouvable, Estimateur, suggestions  # noqa: E402
+from predict import AdresseIntrouvable, Estimateur, niveau_confiance, suggestions  # noqa: E402
 
 NOMS = {
     "surface_reelle_bati": "Surface",
@@ -114,7 +115,14 @@ if "resultat" in st.session_state:
     col2.metric("Prix au m²", euros(r["prix_m2"]).replace("€", "€/m²"))
     st.write(f"Fourchette probable : **{euros(r['prix_bas'])}** à **{euros(r['prix_haut'])}**")
     st.caption("Sur les ventes de 2025, environ 8 vrais prix sur 10 tombaient dans ce type de fourchette.")
-
+    bien = st.session_state["bien"]
+    estimateur = charger_estimateur()
+    nb_voisins = estimateur.compter_voisins(r["latitude"], r["longitude"], bien["type_local"], bien["surface"])
+    largeur = (r["prix_haut"] - r["prix_bas"]) / r["prix"]
+    atypique = estimateur.surface_atypique(bien["type_local"], bien["surface"])
+    niveau, raisons = niveau_confiance(nb_voisins, largeur, atypique)
+    message = f"**Confiance {niveau}** : " + " ; ".join(raisons) + "."
+    {"élevée": st.success, "moyenne": st.info, "faible": st.warning}[niveau](message)
     st.markdown("#### Pourquoi ce prix ?")
     principaux = r["facteurs"].head(8).rename(index=NOMS)[::-1]
     fig, ax = plt.subplots(figsize=(7, 4))

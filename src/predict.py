@@ -49,6 +49,7 @@ def suggestions(texte, n=5):
     reponse = requests.get(
         URL_GEOCODAGE, params={"q": texte, "citycode": CODE_COMMUNE, "limit": n}, timeout=10
     )
+
     reponse.raise_for_status()
     adresses = []
     for resultat in reponse.json().get("features", []):
@@ -56,6 +57,22 @@ def suggestions(texte, n=5):
         if proprietes.get("citycode") == CODE_COMMUNE and proprietes["label"] not in adresses:
             adresses.append(proprietes["label"])
     return adresses
+
+
+def niveau_confiance(nb_voisins, largeur_relative, surface_atypique):
+    """Classe une estimation en confiance élevée, moyenne ou faible, avec les raisons."""
+    raisons = []
+    if nb_voisins < 5:
+        raisons.append(f"peu de ventes comparables à moins de 500 m ({nb_voisins})")
+    if largeur_relative > 0.6:
+        raisons.append("fourchette de prix très large")
+    if surface_atypique:
+        raisons.append("surface inhabituelle pour ce type de bien")
+    if raisons:
+        return "faible", raisons
+    if nb_voisins >= 20 and largeur_relative <= 0.35:
+        return "élevée", [f"{nb_voisins} ventes comparables à moins de 500 m", "fourchette de prix resserrée"]
+    return "moyenne", [f"{nb_voisins} ventes comparables à moins de 500 m, fourchette de prix moyenne"]
 
 class Estimateur:
     """Charge une seule fois les modèles et les données, puis estime autant de biens que voulu."""
@@ -147,7 +164,19 @@ class Estimateur:
         X["surface_reelle_bati"] = surfaces
         X["surface_par_piece"] = surfaces / pieces
         return self.modele.predict(X[VARIABLES]) * surfaces
-    
+
+    def compter_voisins(self, latitude, longitude, type_local, surface, rayon=500, reference=None):
+        """Nombre de ventes du même type, de surface proche (±30 %), à moins de `rayon` mètres."""
+        v = self.ventes if reference is None else reference
+        v = v[(v["type_local"] == type_local) & v["surface_reelle_bati"].between(0.7 * surface, 1.3 * surface)]
+        dy = (v["latitude"] - latitude) * 111_000
+        dx = (v["longitude"] - longitude) * 111_000 * np.cos(np.radians(latitude))
+        return int((np.hypot(dx, dy) <= rayon).sum())
+
+    def surface_atypique(self, type_local, surface):
+        """Vrai si la surface sort des surfaces habituelles (2 % à 98 %) pour ce type de bien."""
+        surfaces = self.ventes.loc[self.ventes["type_local"] == type_local, "surface_reelle_bati"]
+        return not (surfaces.quantile(0.02) <= surface <= surfaces.quantile(0.98))
     
     
         # valeurs SHAP calculées par LightGBM, en €/m² ; la dernière colonne est la valeur de base
