@@ -11,3 +11,4 @@ lightgbm
 joblib
 optuna
 shap
+streamlit
