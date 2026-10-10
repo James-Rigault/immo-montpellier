@@ -1,7 +1,7 @@
+altair==6.3.0
 geopandas==1.2.0
 joblib==1.6.0
 lightgbm==4.7.0
-matplotlib==3.11.2
 numpy==2.5.3
 osmnx==2.1.1
 pandas==3.0.6

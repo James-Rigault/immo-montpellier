@@ -1,0 +1,11 @@
+# Thème de l'app : tons terre cuite et pierre claire, inspirés des façades de Montpellier
+[theme]
+base = "light"
+primaryColor = "#C0562F"
+backgroundColor = "#FBF7F2"
+secondaryBackgroundColor = "#F3E9DD"
+textColor = "#2B211C"
+font = "sans-serif"
+borderColor = "#E4D6C6"
+linkColor = "#A4441F"
+baseRadius = "0.6rem"
