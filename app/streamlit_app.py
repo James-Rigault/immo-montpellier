@@ -48,6 +48,17 @@ def chercher_adresses(texte):
     """Suggestions d'adresses, gardées en mémoire une heure."""
     return suggestions(texte)
 
+EXEMPLES = {
+    "Écusson": "10 rue de la Loge",
+    "Port Marianne": "15 rue de la Cavalade",
+    "Beaux-Arts": "10 rue Proudhon",
+}
+
+
+def remplir_adresse(exemple):
+    """Appelé au clic sur un exemple, avant le réaffichage de la page."""
+    st.session_state["texte"] = exemple
+
 def euros(x):
     return f"{x:,.0f} €".replace(",", "\u202f")
 
@@ -61,7 +72,11 @@ st.caption(
 texte = st.text_input(
     "Adresse à Montpellier",
     placeholder="Tape le début de l'adresse puis appuie sur Entrée, ex. : 10 rue de la Loge",
+    key="texte",
 )
+st.caption("Ou essaie un exemple :")
+for colonne, (quartier, exemple) in zip(st.columns(len(EXEMPLES)), EXEMPLES.items()):
+    colonne.button(quartier, on_click=remplir_adresse, args=(exemple,), use_container_width=True)
 adresse = ""
 if texte.strip():
     try:
