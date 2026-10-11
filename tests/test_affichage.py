@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -26,7 +27,7 @@ def test_position_estimation_cas_limites():
 
 def test_carte_resultat_affiche_les_trois_prix_et_protege_l_adresse():
     carte = carte_resultat("<b>1 Rue Test</b>", 250_000, 4_000, 200_000, 300_000, euros)
-    for prix in ["250000 €", "4000 €/m²", "200000 €", "300000 €"]:
+    for prix in ["250000 €", "4000 € le m²", "200000 €", "300000 €"]:
         assert prix in carte
     assert "<b>1 Rue Test</b>" not in carte
     assert 'style="left: 50.0%"' in carte
@@ -36,7 +37,7 @@ def test_badge_confiance_remplit_un_segment_par_niveau():
     for niveau, remplis in [("faible", 1), ("moyenne", 2), ("élevée", 3)]:
         badge = badge_confiance(niveau, ["une raison"])
         assert badge.count('class="plein"') == remplis
-        assert f"Confiance {niveau}" in badge
+        assert "Confiance" in badge and niveau.capitalize() in badge
         assert "<li>Une raison</li>" in badge
 
 
@@ -75,6 +76,7 @@ def test_importance_variables_regroupe_l_emplacement():
 
 def test_graphique_comparaison_trois_scores():
     resultats = pd.read_csv(Path(__file__).resolve().parents[1] / "reports" / "resultats_test_2025.csv", index_col=0)
-    spec = str(graphique_comparaison(resultats).to_dict())
-    for score in ["Erreur moyenne", "Erreur médiane", "Prix à ±10 %"]:
+    # json garde les caractères tels quels ; str() écrirait l'espace fine sous la forme « \\u202f »
+    spec = json.dumps(graphique_comparaison(resultats).to_dict(), ensure_ascii=False)
+    for score in ["Erreur moyenne", "Erreur médiane", "Prix à ±10\u202f%"]:
         assert score in spec

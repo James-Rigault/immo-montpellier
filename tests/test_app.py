@@ -36,12 +36,13 @@ def test_bouton_exemple_remplit_adresse(monkeypatch, quartier, adresse):
     assert app.selectbox[0].value == adresse
 
 
-def test_badges_lus_dans_le_rapport_2025():
+def test_chiffres_cles_lus_dans_le_rapport_2025():
     final = pd.read_csv(RACINE / "reports" / "resultats_test_2025.csv", index_col=0).loc["LightGBM final"]
     app = lancer_app()
-    badges = next(m.value for m in app.markdown if 'class="badges"' in m.value)
-    assert f"{final['Erreur médiane (%)']:.1f} %".replace(".", ",") in badges
-    assert f"{final['Part à ±10 % (%)']:.0f} %" in badges
+    badges = next(m.value for m in app.markdown if 'class="chiffres"' in m.value)
+    # « \u202f » : espace fine insécable entre le nombre et « % »
+    assert f"{final['Erreur médiane (%)']:.1f}\u202f%".replace(".", ",") in badges
+    assert f"{final['Part à ±10 % (%)']:.0f}\u202f%" in badges
     assert f"{final['Couverture fourchette (%)'] / 10:.0f} sur 10" in badges
 
 
@@ -57,10 +58,10 @@ def test_estimation_affiche_carte_et_confiance(monkeypatch):
 
     assert not app.exception
     html = "".join(m.value for m in app.markdown)
-    assert 'class="carte"' in html and 'class="fourchette"' in html
+    assert 'class="resultat"' in html and 'class="fourchette"' in html
     assert 'class="confiance"' in html
     graphiques = [str(json.loads(g.proto.spec)) for g in app.get("vega_lite_chart")]
-    assert any("Effet sur le prix (k€)" in spec for spec in graphiques)
+    assert any("Effet sur le prix, en milliers d'euros" in spec for spec in graphiques)
 
 
 def test_trois_onglets_et_pied_de_page():
@@ -70,4 +71,5 @@ def test_trois_onglets_et_pied_de_page():
     assert "Limites" in "".join(m.value for m in app.tabs[1].markdown)
     assert "data.gouv.fr" in "".join(m.value for m in app.tabs[2].markdown)
     # liens pas encore renseignés : ils ne doivent pas apparaître vides
-    assert "]()" not in app.caption[-1].value
+    pied = next(m.value for m in app.markdown if 'class="pied-grille"' in m.value)
+    assert 'href=""' not in pied and "Liens à venir" in pied
