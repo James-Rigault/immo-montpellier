@@ -133,4 +133,3 @@ Les estimations de cette application sont indicatives et réalisées dans un cad
 AUTEUR
 
 James Rigault, étudiant en 2e année d'école d'ingénieur.
-LinkedIn : https://www.linkedin.com/in/TON-PROFIL
