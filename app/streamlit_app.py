@@ -835,12 +835,12 @@ def pied_de_page():
 """, unsafe_allow_html=True)
 
 
-adresse = hero()
+# les onglets tout en haut ; l'ouverture (titre, adresse, chiffres clés) appartient à l'onglet Estimer
 estimer, explorer, comparer, modele, a_propos = st.tabs(
     ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
 )
 with estimer:
-    onglet_estimer(adresse)
+    onglet_estimer(hero())
 with explorer:
     onglet_explorer()
 with comparer:

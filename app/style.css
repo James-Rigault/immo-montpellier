@@ -78,8 +78,9 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 
 /* ---------- 5. Hero ---------- */
 .st-key-hero {
-  min-height: 100vh;
-  min-height: 100svh;               /* hauteur réelle de l'écran sur téléphone */
+  /* tout l'écran, moins la barre d'onglets placée au-dessus */
+  min-height: calc(100vh - 3.75rem);
+  min-height: calc(100svh - 3.75rem);  /* hauteur réelle de l'écran sur téléphone */
   padding: 1.75rem var(--marge) 2.5rem;
   justify-content: space-between;
   gap: 3rem;
