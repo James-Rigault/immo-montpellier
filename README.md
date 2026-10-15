@@ -46,7 +46,7 @@ Résultat final sur les ventes de 2025, après nettoyage complémentaire et opti
 DÉMARCHE
 
 1. Données (src/ingest.py) : téléchargement automatique des ventes DVF géolocalisées de Montpellier.
-2. Nettoyage (src/clean.py) : une ligne DVF n'est pas une vente. Le script dédoublonne les lignes, exclut les ventes de plusieurs logements (prix impossible à répartir), retire les surfaces aberrantes, les prix au m² extrêmes et les ventes hors marché (moins de 30 % du prix médian local : viagers, ventes partielles, ventes en bloc). Les caves et parkings sont conservés comme variable.
+2. Nettoyage (src/clean.py) : une ligne DVF n'est pas une vente. Le script dédoublonne les lignes, exclut les ventes de plusieurs logements (prix impossible à répartir), retire les surfaces aberrantes, les prix au m² extrêmes et les ventes hors marché (moins de 30 % du prix médian local : viagers, ventes partielles, ventes en bloc). Les caves et parkings sont conservés comme variable. Attention : la règle des ventes hors marché a été ajoutée après la production des données du modèle actuel ; elle n'y est pas encore appliquée (voir l'onglet « Le modèle » de l'application).
 3. Variables géographiques (src/features.py) : distances au centre, au tram, aux écoles, aux parcs, aux commerces et aux restaurants, et densités à 500 m, calculées en Lambert-93 à partir d'OpenStreetMap.
 4. Modélisation (src/train.py) : comparaison d'une baseline, d'une régression linéaire, d'une Random Forest et de LightGBM, avec une validation temporelle pour éviter toute fuite de données.
 5. Optimisation et modèle final (src/tune.py, src/final.py) : réglages trouvés par Optuna, réentraînement sur 2021-2024, modèles quantiles pour la fourchette, test unique sur 2025.
@@ -57,7 +57,7 @@ DÉMARCHE
 CE QUE J'AI APPRIS
 
 - Une validation honnête change tout : un découpage aléatoire laisse le modèle « voir le futur » et donne des scores trop optimistes.
-- Les pires erreurs n'étaient pas des erreurs du modèle : les estimations les plus fausses concernaient des ventes autour de 600 €/m², dont plusieurs dans le même immeuble au même prix. Plutôt que de supprimer les prédictions gênantes, j'ai ajouté une règle de nettoyage fixée à l'avance et appliquée à toutes les années.
+- Les pires erreurs n'étaient pas des erreurs du modèle : les estimations les plus fausses concernaient des ventes autour de 600 €/m², dont plusieurs dans le même immeuble au même prix. Plutôt que de supprimer les prédictions gênantes, j'ai ajouté une règle de nettoyage fixée à l'avance pour toutes les années. Elle reste à appliquer aux données du modèle actuel.
 - Corrélation n'est pas causalité : les logements proches du tram sont plus chers, mais ils sont aussi plus proches du centre. SHAP aide à séparer les deux effets dans le modèle, sans prouver de relation de cause à effet.
 
 
@@ -72,6 +72,9 @@ STRUCTURE DU PROJET
 - src/tune.py : optimisation avec Optuna
 - src/final.py : modèle final et test sur 2025
 - src/predict.py : géocodage, estimation, explication, comparables
+- src/marche.py : agrégations de l'onglet « Explorer le marché » (carte en hexagones, évolution, pièces)
+- src/erreurs.py : erreurs sur 2025 par groupe et poids des ventes hors marché
+- src/rapport_nettoyage.py : entonnoir du nettoyage, écrit dans reports/ pour l'application
 - notebooks/ : exploration, nettoyage, variables, modèles, explicabilité
 - tests/ : tests automatisés (pytest)
 - models/ : modèles entraînés
@@ -99,6 +102,9 @@ python src/features.py
 python src/train.py
 python src/tune.py
 python src/final.py
+python src/rapport_nettoyage.py
+
+Le rapport vérifie que ses étapes reproduisent les données du modèle : il s'arrête avec une erreur si elles ont changé.
 
 Lancer les tests :
 python -m pytest

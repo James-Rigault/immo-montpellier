@@ -64,12 +64,81 @@ def test_estimation_affiche_carte_et_confiance(monkeypatch):
     assert any("Effet sur le prix, en milliers d'euros" in spec for spec in graphiques)
 
 
-def test_trois_onglets_et_pied_de_page():
+def test_onglets_et_pied_de_page():
     app = lancer_app()
     assert not app.exception
-    assert [onglet.label for onglet in app.tabs] == ["Estimer", "Le modèle", "À propos"]
-    assert "Limites" in "".join(m.value for m in app.tabs[1].markdown)
-    assert "data.gouv.fr" in "".join(m.value for m in app.tabs[2].markdown)
+    assert [onglet.label for onglet in app.tabs] == ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
+    assert "Limites" in "".join(m.value for m in app.tabs[3].markdown)
+    assert "data.gouv.fr" in "".join(m.value for m in app.tabs[4].markdown)
     # liens pas encore renseignés : ils ne doivent pas apparaître vides
     pied = next(m.value for m in app.markdown if 'class="pied-grille"' in m.value)
     assert 'href=""' not in pied and "Liens à venir" in pied
+
+
+@pytest.mark.parametrize("type_local, annee", [("Tous", "Toutes"), ("Appartement", 2023), ("Maison", 2025)])
+def test_explorer_le_marche_suit_les_filtres(type_local, annee):
+    app = lancer_app()
+    app.radio(key="marche_type").set_value(type_local).run()
+    app.selectbox(key="marche_annee").set_value(annee).run()
+    assert not app.exception
+    graphiques = [str(json.loads(g.proto.spec)) for g in app.tabs[1].get("vega_lite_chart")]
+    assert len(graphiques) == 2 and any("Nombre de pièces" in spec for spec in graphiques)
+    texte = "".join(m.value for m in app.tabs[1].markdown)
+    assert "affichée" in texte or "Aucune zone" in "".join(i.value for i in app.tabs[1].info)
+
+
+def test_comparer_deux_biens(monkeypatch):
+    # le bien A en centre-ville, le bien B à La Paillade : B doit être estimé moins cher
+    coordonnees = {"A": (43.6110, 3.8790), "B": (43.6290, 3.8250)}
+    def suggestions_factices(*a, params, **k):
+        nom = "A" if "Loge" in params["q"] else "B"
+        return FausseReponse({"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": f"Bien {nom}"}}]})
+    monkeypatch.setattr(predict.requests, "get", suggestions_factices)
+    # les suggestions sont gardées en cache d'un test à l'autre : on reconnaît le bien A à « Loge »
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (*coordonnees["A" if "Loge" in texte else "B"], texte))
+
+    app = lancer_app()
+    app.text_input(key="cmp_texte_A").input("10 rue de la Loge").run()
+    app.text_input(key="cmp_texte_B").input("rue de Tipasa").run()
+    next(b for b in app.button if b.label == "Comparer").click().run()
+
+    assert not app.exception
+    onglet = app.tabs[2]
+    html = "".join(m.value for m in onglet.markdown)
+    assert html.count('class="resultat"') == 2
+    assert "Écart de prix" in html and "Le bien B est estimé" in html and "moins cher" in html
+    graphiques = [json.loads(g.proto.spec) for g in onglet.get("vega_lite_chart")]
+    assert len(graphiques) == 2
+    # 5 facteurs par bien : le graphique des facteurs fait 38 px de haut par facteur
+    assert [g["height"] for g in graphiques] == [5 * 38, 5 * 38]
+
+
+def test_comparer_sans_adresse_previent():
+    app = lancer_app()
+    next(b for b in app.button if b.label == "Comparer").click().run()
+    assert not app.exception
+    assert "Bien A : saisissez une adresse" in app.tabs[2].warning[0].value
+
+
+def test_le_modele_erreurs_par_groupe_et_hors_marche():
+    app = lancer_app()
+    assert not app.exception
+    onglet = app.tabs[3]
+    texte = "".join(m.value for m in onglet.markdown)
+    for titre in ["Par code postal", "Par surface", "Appartements et maisons", "Où on en est", "Une enquête"]:
+        assert titre in texte
+    # 1 graphique de comparaison, 1 d'importance, 3 d'erreurs
+    assert len(onglet.get("vega_lite_chart")) == 5
+
+
+def test_a_propos_parcours_et_entonnoir():
+    tableau = pd.read_csv(RACINE / "reports" / "entonnoir_nettoyage.csv")
+    app = lancer_app()
+    assert not app.exception
+    onglet = app.tabs[4]
+    html = "".join(m.value for m in onglet.markdown)
+    assert html.count("<li>") >= 5 and 'class="parcours"' in html
+    brutes = f"{tableau['lignes'].iloc[0]:,}".replace(",", "\u202f")
+    assert f"De {brutes} lignes" in html
+    spec = str(json.loads(onglet.get("vega_lite_chart")[0].proto.spec))
+    assert "Étape à appliquer" in spec

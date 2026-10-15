@@ -205,3 +205,172 @@ def graphique_comparaison(resultats):
     barres = base.mark_bar(height={"band": 0.8}).encode(color=couleur)
     valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Valeur:N")
     return style_graphique((barres + valeurs).properties(height=alt.Step(24)))
+
+
+# ---------- Explorer le marché ----------
+
+# du papier au vert bouteille : une seule teinte, de plus en plus foncée avec le prix
+RAMPE = ["#DCE3D9", "#B4C4B2", "#82A084", "#4F7259", "#1F3B2D"]
+COULEURS_TYPES = {"Appartement": ACCENT, "Maison": GRIS}
+AXE_EUROS = "replace(format(datum.value, ',.0f'), ',', ' ') + ' €'"
+
+
+def bornes_classes(prix, n=len(RAMPE)):
+    """Limites de n classes de même effectif (quantiles) : n − 1 valeurs."""
+    return [float(prix.quantile(i / n)) for i in range(1, n)]
+
+
+def couleur_classe(prix, bornes):
+    """Couleur [r, g, b] de la classe de prix, pour pydeck."""
+    rang = sum(prix >= b for b in bornes)
+    code = RAMPE[rang].lstrip("#")
+    return [int(code[i:i + 2], 16) for i in (0, 2, 4)]
+
+
+def legende_carte(bornes, euros):
+    """Légende de la carte : une pastille par classe, avec ses limites."""
+    limites = [None, *bornes, None]
+    elements = []
+    for couleur, bas, haut in zip(RAMPE, limites[:-1], limites[1:]):
+        texte = f"moins de {euros(haut)}" if bas is None else f"{euros(bas)} et plus" if haut is None \
+            else f"{euros(bas)} – {euros(haut)}"
+        elements.append(f'<li><i style="background:{couleur}"></i>{texte}</li>')
+    return f'<ul class="legende">{"".join(elements)}</ul>'
+
+
+def graphique_evolution(evolution, annee=None):
+    """Prix au m² médian par année : une ligne par type de bien, nommée au bout ; l'année choisie en filet."""
+    donnees = evolution.rename(columns={"type_local": "Type"}).copy()
+    donnees["Prix au m²"] = [f"{p:,.0f} €".replace(",", " ") for p in donnees["prix_m2"]]
+    domaine, couleurs = list(COULEURS_TYPES), list(COULEURS_TYPES.values())
+    base = alt.Chart(donnees).encode(
+        x=alt.X("annee:O", title=None, axis=alt.Axis(labelAngle=0, labelColor=ENCRE)),
+        y=alt.Y("prix_m2:Q", title=None, scale=alt.Scale(zero=False, padding=20),
+                axis=alt.Axis(labelExpr=AXE_EUROS, grid=True, tickCount=5)),
+        # légende au-dessus du graphique : en haut à gauche, elle chevaucherait les courbes sur téléphone
+        color=alt.Color("Type:N", title=None, scale=alt.Scale(domain=domaine, range=couleurs),
+                        legend=alt.Legend(orient="top", direction="horizontal")),
+        tooltip=[alt.Tooltip("Type:N"), alt.Tooltip("annee:O", title="Année"), alt.Tooltip("Prix au m²:N"),
+                 alt.Tooltip("nb_ventes:Q", title="Ventes", format=",")],
+    )
+    lignes = base.mark_line(strokeWidth=2)
+    points = base.mark_point(filled=True, size=70, opacity=1)
+    derniere = donnees["annee"].max()
+    noms = base.transform_filter(f"datum.annee == {derniere}").mark_text(
+        align="left", dx=10, fontSize=12, color=ENCRE).encode(text="Type:N")
+    calques = [lignes, points, noms]
+    if annee is not None:
+        repere = pd.DataFrame({"annee": [annee]})
+        calques.insert(0, alt.Chart(repere).mark_rule(color=GRIS_CLAIR, strokeDash=[2, 3]).encode(x="annee:O"))
+    return style_graphique(alt.layer(*calques).properties(height=320))
+
+
+def graphique_pieces(stats):
+    """Prix au m² selon le nombre de pièces : filet du 1er au 9e décile, boîte des quartiles, médiane en encre."""
+    donnees = stats.copy()
+    for colonne in ["p10", "p25", "mediane", "p75", "p90"]:
+        donnees[colonne + "_txt"] = [f"{p:,.0f} €".replace(",", " ") for p in donnees[colonne]]
+    ordre = list(donnees["Pièces"])
+    base = alt.Chart(donnees).encode(
+        x=alt.X("Pièces:N", sort=ordre, title="Nombre de pièces", axis=alt.Axis(labelAngle=0, labelColor=ENCRE)),
+        tooltip=[alt.Tooltip("Pièces:N"), alt.Tooltip("nb_ventes:Q", title="Ventes", format=","),
+                 alt.Tooltip("mediane_txt:N", title="Médiane"),
+                 alt.Tooltip("p25_txt:N", title="1 sur 4 en dessous de"),
+                 alt.Tooltip("p75_txt:N", title="1 sur 4 au-dessus de")],
+    )
+    axe = alt.Axis(labelExpr=AXE_EUROS, grid=True, tickCount=5)
+    deciles = base.mark_rule(color=GRIS, strokeWidth=1).encode(
+        y=alt.Y("p10:Q", title=None, axis=axe, scale=alt.Scale(zero=False)), y2="p90:Q")
+    boite = base.mark_bar(size=26, color=GRIS_CLAIR).encode(y="p25:Q", y2="p75:Q")
+    mediane = base.mark_tick(size=26, thickness=2.5, color=ENCRE).encode(y="mediane:Q")
+    return style_graphique((deciles + boite + mediane).properties(height=320))
+
+
+# ---------- Comparer ----------
+
+def ecart_estimations(a, b):
+    """Écart du bien B par rapport au bien A : en euros, en %, au m², et si leurs fourchettes se recouvrent."""
+    return {
+        "ecart": b["prix"] - a["prix"],
+        "ecart_pct": 100 * (b["prix"] - a["prix"]) / a["prix"],
+        "ecart_m2": b["prix_m2"] - a["prix_m2"],
+        # fourchettes qui se recouvrent : l'écart estimé reste dans l'incertitude du modèle
+        "chevauchement": a["prix_bas"] <= b["prix_haut"] and b["prix_bas"] <= a["prix_haut"],
+    }
+
+
+# ---------- Où le modèle se trompe ----------
+
+def graphique_erreurs(erreurs, reference):
+    """Erreur médiane par groupe, en %, avec le nombre de ventes ; filet pointillé = erreur médiane globale."""
+    donnees = erreurs.copy()
+    donnees["Texte"] = [
+        f"{e:.1f} %".replace(".", ",") + f"  ·  {n:,} ventes".replace(",", " ")
+        for e, n in zip(donnees["erreur_mediane"], donnees["nb_ventes"])
+    ]
+    maximum = max(donnees["erreur_mediane"].max(), reference) * 1.6  # place pour le texte à droite
+    base = alt.Chart(donnees).encode(
+        y=alt.Y("groupe:N", sort=None, title=None, axis=alt.Axis(labelLimit=180, labelColor=ENCRE, labelPadding=10)),
+        x=alt.X("erreur_mediane:Q", title=None, scale=alt.Scale(domain=[0, maximum]),
+                axis=alt.Axis(grid=True, tickCount=4, labelExpr="datum.value + ' %'")),
+        tooltip=[alt.Tooltip("groupe:N", title="Groupe"), alt.Tooltip("Texte:N", title="Erreur médiane")],
+    )
+    barres = base.mark_bar(height={"band": 0.5}, color=GRIS_CLAIR)
+    valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Texte:N")
+    repere = alt.Chart(pd.DataFrame({"x": [reference]})).mark_rule(color=ACCENT, strokeDash=[3, 3]).encode(x="x:Q")
+    # Streamlit compte l'axe horizontal dans la hauteur : on lui réserve 50 px en plus des barres
+    return style_graphique((barres + valeurs + repere).properties(height=34 * len(donnees) + 50))
+
+
+# ---------- À propos ----------
+
+STATUTS = ["Étape appliquée", "Données du modèle", "Étape à appliquer"]
+
+
+def graphique_entonnoir(tableau):
+    """Lignes restantes après chaque étape du nettoyage.
+
+    Les étapes appliquées en gris, la dernière (les données du modèle) en accent,
+    la règle pas encore appliquée en simple contour pointillé.
+    """
+    donnees = tableau.copy()
+    derniere = donnees.index[donnees["appliquee"]].max()
+    donnees["statut"] = [
+        STATUTS[1] if i == derniere else STATUTS[0] if a else STATUTS[2]
+        for i, a in zip(donnees.index, donnees["appliquee"])
+    ]
+    donnees["Texte"] = [
+        f"{n:,}".replace(",", " ") + (f"   −{r:,}".replace(",", " ") if r else "")
+        for n, r in zip(donnees["lignes"], donnees["retirees"])
+    ]
+    base = alt.Chart(donnees).encode(
+        y=alt.Y("etape:N", sort=None, title=None,
+                axis=alt.Axis(labelLimit=200, labelColor=ENCRE, labelPadding=10)),
+        x=alt.X("lignes:Q", title=None, axis=None, scale=alt.Scale(domain=[0, donnees["lignes"].max() * 1.3])),
+        tooltip=[alt.Tooltip("etape:N", title="Étape"), alt.Tooltip("lignes:Q", title="Lignes restantes", format=","),
+                 alt.Tooltip("retirees:Q", title="Lignes retirées", format=","), alt.Tooltip("statut:N", title="Statut")],
+    )
+    barres = base.mark_bar(height={"band": 0.55}).encode(
+        color=alt.Color("statut:N", title=None,
+                        scale=alt.Scale(domain=STATUTS, range=[GRIS_CLAIR, ACCENT, "transparent"]),
+                        legend=alt.Legend(orient="top", direction="vertical")),
+        stroke=alt.Stroke("statut:N", scale=alt.Scale(domain=STATUTS, range=[GRIS_CLAIR, ACCENT, ENCRE]), legend=None),
+        strokeDash=alt.StrokeDash("statut:N", scale=alt.Scale(domain=STATUTS, range=[[1, 0], [1, 0], [3, 3]]),
+                                  legend=None),
+    )
+    valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Texte:N")
+    # Streamlit compte la légende (une ligne par statut) dans la hauteur : on lui réserve 80 px en plus
+    return style_graphique((barres + valeurs).properties(height=40 * len(donnees) + 80))
+
+
+def schema_parcours(etapes):
+    """Parcours des données : une case par étape (titre, script, fichier produit), reliées par des flèches.
+
+    `etapes` : liste de dictionnaires {"titre", "texte", "script", "sortie"}.
+    """
+    cases = "".join(
+        f'<li><span class="liste-numero">{i:02d}</span><b>{escape(e["titre"])}</b><p>{escape(e["texte"])}</p>'
+        f'<code>{escape(e["script"])}</code><span class="parcours-sortie">→ {escape(e["sortie"])}</span></li>'
+        for i, e in enumerate(etapes, start=1)
+    )
+    return f'<ol class="parcours">{cases}</ol>'

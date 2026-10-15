@@ -1,0 +1,9 @@
+etape,lignes,retirees,appliquee
+Lignes brutes,81361,0,True
+Ventes (mutations),30699,50662,True
+Ventes d'un seul logement,24516,6183,True
+Données complètes,24209,307,True
+Surfaces de 9 à 400 m²,24200,9,True
+Au moins une pièce,24184,16,True
+Sans les 1 % de prix extrêmes,23703,481,True
+Règle des ventes hors marché,23338,365,False

@@ -3,6 +3,7 @@ import sys
 from html import escape
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pydeck as pdk
 import requests
@@ -10,10 +11,15 @@ import streamlit as st
 from pydeck.types import String
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from erreurs import bilan_hors_marche, erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
+from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
+from train import ANNEE_TEST, ANNEE_VALIDATION, ANNEES_TRAIN, VARIABLES  # noqa: E402
 from predict import AdresseIntrouvable, Estimateur, niveau_confiance, suggestions  # noqa: E402
 from affichage import (  # noqa: E402
-    badge_confiance, carte_resultat, graphique_comparaison, graphique_courbe, graphique_facteurs,
-    graphique_importance, importance_variables, regrouper_facteurs,
+    badge_confiance, bornes_classes, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
+    graphique_courbe,
+    graphique_entonnoir, graphique_erreurs, graphique_evolution, graphique_facteurs, graphique_importance, graphique_pieces, importance_variables,
+    legende_carte, regrouper_facteurs, schema_parcours,
 )
 
 # à remplir avec tes adresses ; un lien laissé vide n'est pas affiché
@@ -21,6 +27,7 @@ LIEN_GITHUB = ""
 LIEN_LINKEDIN = ""
 
 RESULTATS_2025 = Path(__file__).resolve().parents[1] / "reports" / "resultats_test_2025.csv"
+ENTONNOIR = Path(__file__).resolve().parents[1] / "reports" / "entonnoir_nettoyage.csv"  # écrit par src/rapport_nettoyage.py
 FEUILLE_DE_STYLE = Path(__file__).resolve().parent / "style.css"
 
 NOMS = {
@@ -69,6 +76,10 @@ def euros(x):
     return f"{x:,.0f} €".replace(",", "\u202f")
 
 
+def nombre(x):
+    return f"{x:,.0f}".replace(",", "\u202f")
+
+
 def pourcent(x):
     # espace fine insécable avant « % » : le signe ne part jamais seul à la ligne
     return f"{x:.1f}\u202f%".replace(".", ",")
@@ -90,14 +101,35 @@ def chiffres_cles():
 st.markdown(f"<style>{FEUILLE_DE_STYLE.read_text()}</style>", unsafe_allow_html=True)
 
 ventes = charger_estimateur().ventes
-nb_ventes = f"{len(ventes):,}".replace(",", "\u202f")
+nb_ventes = nombre(len(ventes))
 annees = ventes["date_mutation"].dt.year
 chiffres = chiffres_cles()
 
 
+def champ_adresse(cle, exemple, libelle="Adresse"):
+    """Champ d'adresse avec suggestions officielles. Renvoie l'adresse choisie, ou "" tant qu'il n'y en a pas."""
+    texte = st.text_input(
+        libelle,
+        placeholder=exemple,
+        help="Saisissez le début de l'adresse, puis Entrée pour afficher les suggestions.",
+        key=cle,
+    )
+    if not texte.strip():
+        return ""
+    try:
+        propositions = chercher_adresses(texte)
+    except requests.RequestException:
+        st.warning("Le service d'adresses ne répond pas. Réessayez dans un instant.")
+        return ""
+    if propositions:
+        return st.selectbox("Adresse exacte", propositions, key=f"{cle}_choix")
+    if len(texte.strip()) >= 3:
+        st.info("Aucune adresse trouvée à Montpellier. Vérifiez l'orthographe.")
+    return ""
+
+
 def hero():
     """Ouverture plein écran : titre, champ d'adresse et chiffres clés. Renvoie l'adresse choisie."""
-    adresse = ""
     with st.container(key="hero"):
         st.markdown(f"""
 <div class="bandeau">
@@ -112,22 +144,7 @@ def hero():
 et les raisons de son prix.</p>""", unsafe_allow_html=True)
 
         with droite:
-            texte = st.text_input(
-                "Adresse",
-                placeholder="10 rue de la Loge",
-                help="Saisissez le début de l'adresse, puis Entrée pour afficher les suggestions.",
-                key="texte",
-            )
-            if texte.strip():
-                try:
-                    propositions = chercher_adresses(texte)
-                except requests.RequestException:
-                    propositions = []
-                    st.warning("Le service d'adresses ne répond pas. Réessayez dans un instant.")
-                if propositions:
-                    adresse = st.selectbox("Adresse exacte", propositions)
-                elif len(texte.strip()) >= 3:
-                    st.info("Aucune adresse trouvée à Montpellier. Vérifiez l'orthographe.")
+            adresse = champ_adresse("texte", "10 rue de la Loge")
             st.markdown('<span class="etiquette">Exemples</span>', unsafe_allow_html=True)
             with st.container(horizontal=True, key="exemples"):
                 for quartier, exemple in EXEMPLES.items():
@@ -351,6 +368,221 @@ def onglet_estimer(adresse):
     section_simulateur(r, bien)
 
 
+# ---------- Explorer le marché ----------
+# les agrégations sont gardées en mémoire pour chaque combinaison de filtres : l'app reste rapide
+
+@st.cache_data(show_spinner=False)
+def bornes_carte():
+    """Limites des classes de couleur, calculées une fois sur toutes les zones : une couleur garde
+    le même sens quels que soient les filtres."""
+    return bornes_classes(grille_prix(charger_estimateur().ventes)["prix_m2"])
+
+
+@st.cache_data(show_spinner=False)
+def zones_marche(type_local, annee):
+    """Hexagones d'au moins MIN_VENTES ventes pour ces filtres, et nombre de ventes filtrées."""
+    ventes_filtrees = filtrer(charger_estimateur().ventes, type_local, annee)
+    return grille_prix(ventes_filtrees), len(ventes_filtrees)
+
+
+@st.cache_data(show_spinner=False)
+def evolution_marche():
+    return evolution_prix(charger_estimateur().ventes)
+
+
+@st.cache_data(show_spinner=False)
+def pieces_marche(type_local, annee):
+    return prix_selon_pieces(filtrer(charger_estimateur().ventes, type_local, annee))
+
+
+def description_filtres(type_local, annee):
+    """« appartements, 2023 », « tous les biens, 2021–2025 »…"""
+    biens = {"Tous": "tous les biens", "Appartement": "appartements", "Maison": "maisons"}[type_local]
+    periode = f"{annees.min()}–{annees.max()}" if annee == "Toutes" else str(annee)
+    return f"{biens}, {periode}"
+
+
+def onglet_explorer():
+    """Carte des prix par zone, évolution dans le temps et prix selon le nombre de pièces."""
+    with st.container(key="section-explorer-carte"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        with gauche:
+            st.markdown(entete(
+                "01 — Carte", "Les prix par quartier",
+                f"Prix au m² médian des ventes, par zone d'environ 430 m de large. Une zone n'apparaît qu'à "
+                f"partir de {MIN_VENTES} ventes : en dessous, sa médiane dépendrait de trop peu de cas.",
+            ), unsafe_allow_html=True)
+            type_local = st.radio("Type de bien", ["Tous", "Appartement", "Maison"], horizontal=True,
+                                  key="marche_type")
+            annee = st.selectbox("Année", ["Toutes", *sorted(annees.unique())], key="marche_annee")
+
+        zones, nb = zones_marche(type_local, annee)
+        with droite:
+            if zones.empty:
+                st.info("Aucune zone ne compte assez de ventes avec ces filtres.")
+            else:
+                bornes = bornes_carte()
+                zones = zones.assign(
+                    couleur=[couleur_classe(p, bornes) for p in zones["prix_m2"]],
+                    info=[f"{euros(p)} le m² · {n} ventes" for p, n in zip(zones["prix_m2"], zones["nb_ventes"])],
+                )
+                hexagones = pdk.Layer(
+                    "PolygonLayer", data=zones, get_polygon="contour", get_fill_color="couleur", opacity=0.85,
+                    stroked=True, get_line_color=[244, 242, 238], line_width_min_pixels=1, pickable=True,
+                )
+                # vue centrée sur l'étendue des zones affichées, pas sur la Comédie : la ville s'étend au nord
+                sommets = np.array([s for contour in zones["contour"] for s in contour])
+                centre = (sommets.min(axis=0) + sommets.max(axis=0)) / 2
+                vue = pdk.ViewState(latitude=centre[1], longitude=centre[0], zoom=11.6)
+                st.pydeck_chart(pdk.Deck(
+                    layers=[hexagones], initial_view_state=vue, tooltip={"text": "{info}"},
+                    map_provider="carto", map_style=pdk.map_styles.CARTO_LIGHT,
+                ))
+                st.markdown(legende_carte(bornes, euros), unsafe_allow_html=True)
+                dans_zones = nombre(zones["nb_ventes"].sum())
+                st.markdown(
+                    f'<p class="note">{len(zones)} zone{"s" * (len(zones) > 1)} affichée{"s" * (len(zones) > 1)} '
+                    f"({description_filtres(type_local, annee)}). "
+                    f"Elles regroupent {dans_zones} des {nombre(nb)} ventes ; les autres sont dans des zones trop "
+                    "peu fournies.</p>",
+                    unsafe_allow_html=True,
+                )
+
+    with st.container(key="section-ombre-explorer-evolution"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "02 — Évolution", "Cinq ans de prix",
+            "Prix au m² médian de chaque année, pour les appartements et pour les maisons. "
+            "Le filtre de type ne s'applique pas ici ; l'année choisie est marquée d'un pointillé.",
+        ), unsafe_allow_html=True)
+        droite.altair_chart(
+            graphique_evolution(evolution_marche(), None if annee == "Toutes" else annee), width="stretch"
+        )
+
+    with st.container(key="section-explorer-pieces"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "03 — Taille", "Selon le nombre de pièces",
+            f"Pour {description_filtres(type_local, annee)} : la boîte contient la moitié des ventes, le "
+            "trait noir est la médiane, le filet va du 1er au 9e décile (8 ventes sur 10). "
+            f"Une taille de logement n'est montrée qu'à partir de {MIN_VENTES} ventes.",
+        ), unsafe_allow_html=True)
+        droite.altair_chart(graphique_pieces(pieces_marche(type_local, annee)), width="stretch")
+
+
+# ---------- Comparer ----------
+
+BIENS = {"A": "4 boulevard du Jeu de Paume", "B": "20 avenue de Toulouse"}  # exemples affichés en gris
+
+
+def signe(x, texte):
+    """« +12 000 € » ou « −12 000 € » : vrai signe moins, jamais un trait d'union."""
+    return ("+" if x > 0 else "−" if x < 0 else "") + texte
+
+
+def formulaire_comparaison():
+    """Deux biens côte à côte. Renvoie {"A": bien, "B": bien} au clic sur « Comparer », sinon None.
+
+    Pas de st.form ici : dans un formulaire, la touche Entrée validerait tout au lieu d'afficher
+    les suggestions d'adresse. Chaque colonne contient donc tout son bien, et rien n'est estimé avant le clic.
+    """
+    biens = {}
+    for nom, colonne in zip(BIENS, st.columns(2, gap="large")):
+        with colonne:
+            st.markdown(f'<h3 class="titre-bien">Bien {nom}</h3>', unsafe_allow_html=True)
+            biens[nom] = {
+                "adresse": champ_adresse(f"cmp_texte_{nom}", BIENS[nom]),
+                "type_local": st.radio("Type de bien", ["Appartement", "Maison"], horizontal=True,
+                                       key=f"cmp_type_{nom}"),
+                "surface": st.number_input("Surface habitable (m²)", 9, 400, 60, key=f"cmp_surface_{nom}"),
+                "pieces": st.number_input("Nombre de pièces", 1, 15, 3, key=f"cmp_pieces_{nom}"),
+            }
+    return biens if st.button("Comparer", type="primary") else None
+
+
+def estimer_biens(biens):
+    """Estime les deux biens ; affiche l'erreur et renvoie None si l'un d'eux échoue."""
+    resultats = {}
+    for nom, bien in biens.items():
+        if not bien["adresse"]:
+            st.warning(f"Bien {nom} : saisissez une adresse et choisissez-la dans les suggestions.")
+            return None
+        try:
+            resultats[nom] = charger_estimateur().estimer(
+                bien["adresse"], bien["type_local"], bien["surface"], bien["pieces"]
+            )
+        except AdresseIntrouvable:
+            st.error(f"Bien {nom} : adresse introuvable dans la commune de Montpellier.")
+            return None
+        except requests.RequestException:
+            st.error("Le service de géocodage ne répond pas. Réessayez dans un instant.")
+            return None
+    return resultats
+
+
+def section_ecart(resultats):
+    """Le verdict : combien B coûte de plus (ou de moins) que A, et si l'écart dépasse l'incertitude."""
+    e = ecart_estimations(resultats["A"], resultats["B"])
+    if round(e["ecart"]) == 0:
+        phrase = "Les deux biens sont estimés au même prix."
+    else:
+        sens = "plus cher" if e["ecart"] > 0 else "moins cher"
+        phrase = f"Le bien B est estimé {euros(abs(e['ecart']))} {sens} que le bien A."
+    prudence = (
+        "Leurs fourchettes se recouvrent : l'écart reste dans la marge d'incertitude du modèle."
+        if e["chevauchement"] else
+        "Leurs fourchettes ne se recouvrent pas : l'écart dépasse la marge d'incertitude du modèle."
+    )
+    with st.container(key="section-comparer-ecart"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete("03 — Écart", "B face à A", phrase), unsafe_allow_html=True)
+        droite.markdown(f"""
+<div class="chiffres">
+  <div class="chiffre"><b>{signe(e["ecart"], euros(abs(e["ecart"])))}</b><span>Écart de prix</span></div>
+  <div class="chiffre"><b>{signe(e["ecart_pct"], pourcent(abs(e["ecart_pct"])))}</b><span>En pourcentage du prix de A</span></div>
+  <div class="chiffre"><b>{signe(e["ecart_m2"], euros(abs(e["ecart_m2"])))}</b><span>Écart au m²</span></div>
+</div>
+<p class="note">{prudence}</p>""", unsafe_allow_html=True)
+
+
+def onglet_comparer():
+    """Deux biens, deux estimations, leurs 5 principaux facteurs, puis l'écart entre les deux."""
+    with st.container(key="section-comparer-biens"):
+        st.markdown(entete(
+            "01 — Les biens", "Comparer deux logements",
+            "Deux adresses, deux descriptions : chaque bien est estimé par le même modèle que l'onglet Estimer.",
+        ), unsafe_allow_html=True)
+        biens = formulaire_comparaison()
+        if biens:
+            with st.spinner("Calcul en cours…"):
+                resultats = estimer_biens(biens)
+            if resultats:
+                st.session_state["resultats_comparaison"] = resultats
+
+    if "resultats_comparaison" not in st.session_state:
+        return
+    resultats = st.session_state["resultats_comparaison"]
+
+    with st.container(key="section-ombre-comparer-resultats"):
+        st.markdown(entete(
+            "02 — Estimations", "Prix et raisons",
+            "Pour chaque bien, le prix, sa fourchette, et les 5 caractéristiques qui pèsent le plus sur ce prix "
+            "(valeurs SHAP, en milliers d'euros).",
+        ), unsafe_allow_html=True)
+        for nom, colonne in zip(resultats, st.columns(2, gap="large")):
+            r = resultats[nom]
+            colonne.markdown(
+                f'<div class="comparaison"><h3 class="titre-bien">Bien {nom}</h3>'
+                + carte_resultat(r["adresse"], r["prix"], r["prix_m2"], r["prix_bas"], r["prix_haut"], euros)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+            principaux = regrouper_facteurs(r["facteurs"]).head(5).rename(index=NOMS)
+            colonne.altair_chart(graphique_facteurs(principaux), width="stretch")
+
+    section_ecart(resultats)
+
+
 def liste_filets(elements):
     """Liste numérotée éditoriale : chaque élément (titre, texte) entre deux filets."""
     lignes = "".join(
@@ -358,6 +590,82 @@ def liste_filets(elements):
         for i, (titre, texte) in enumerate(elements, start=1)
     )
     return f'<ol class="liste-filets">{lignes}</ol>'
+
+
+@st.cache_data(show_spinner=False)
+def test_2025():
+    """Les ventes de 2025 avec leur estimation : les mêmes prédictions que src/final.py, recalculées une fois."""
+    return predictions_test(charger_estimateur().modele, charger_estimateur().ventes)
+
+
+@st.cache_data(show_spinner=False)
+def erreurs_2025():
+    """Erreur médiane sur 2025 par code postal, par tranche de surface et par type de bien."""
+    test = test_2025()
+    return {
+        "Par code postal": erreur_par_groupe(test, "code_postal"),
+        "Par surface": erreur_par_groupe(test, tranche_surface(test["surface_reelle_bati"])),
+        "Appartements et maisons": erreur_par_groupe(test, "type_local"),
+    }
+
+
+@st.cache_data(show_spinner=False)
+def bilan_2025():
+    return bilan_hors_marche(charger_estimateur().ventes, test_2025())
+
+
+def section_erreurs():
+    """03 — où le modèle se trompe le plus, sur les ventes de 2025."""
+    with st.container(key="section-modele-erreurs"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "03 — Détail", "Où il se trompe",
+            f"Erreur médiane sur les ventes de 2025, groupe par groupe. Le pointillé vert marque l'erreur médiane "
+            f"de l'ensemble ({pourcent(chiffres['erreur_mediane'])}).",
+        ), unsafe_allow_html=True)
+        with droite:
+            for titre, erreurs in erreurs_2025().items():
+                st.markdown(f'<span class="etiquette">{titre}</span>', unsafe_allow_html=True)
+                st.altair_chart(graphique_erreurs(erreurs, chiffres["erreur_mediane"]), width="stretch")
+
+
+def section_hors_marche():
+    """04 — l'histoire des ventes hors marché, racontée avec les chiffres recalculés sur les données."""
+    b = bilan_2025()
+    immeuble = (
+        f" Jusqu'à {b['plus_grand_groupe']} ventes partagent la même adresse et le même prix au m² : sans doute "
+        "des lots vendus en bloc." if b["plus_grand_groupe"] > 1 else ""
+    )
+    with st.container(key="section-ombre-modele-hors-marche"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "04 — Une enquête", # espace insécable : « 700 » et « € » ne sont jamais séparés par un retour à la ligne
+            f"Les ventes à {euros(round(b['prix_m2_median'], -2)).replace(' ', chr(160))} le m²",
+            "En étudiant les pires erreurs, une famille de ventes revient sans cesse. Le modèle n'y est pour rien.",
+        ), unsafe_allow_html=True)
+        droite.markdown(f"""
+<div class="chiffres">
+  <div class="chiffre"><b>{b["nb_parmi_pires"]} sur {b["nb_pires"]}</b><span>Des pires erreurs de 2025 sont des ventes hors marché</span></div>
+  <div class="chiffre"><b>{b["erreur_mediane_hors_marche"]:.0f} %</b><span>Erreur médiane sur ces {b["nb_test"]} ventes de 2025</span></div>
+  <div class="chiffre"><b>{pourcent(b["erreur_moyenne_sans"])}</b><span>Erreur moyenne sur 2025 sans elles, contre {pourcent(b["erreur_moyenne"])} avec</span></div>
+</div>""", unsafe_allow_html=True)
+        droite.markdown(liste_filets([
+            ("Le constat", f"Des logements vendus autour de {euros(b['prix_m2_median'])} le m² (médiane), là où le "
+                           f"même type de bien se vend environ {euros(b['prix_m2_local'])} le m² dans le même code "
+                           f"postal la même année. Le modèle, lui, prédit un prix normal.{immeuble}"),
+            ("L'explication", "Ce sont des ventes hors marché : viagers (seul le bouquet est déclaré), ventes "
+                              "partielles (nue-propriété, quote-part), ventes entre proches, ventes en bloc. Le prix "
+                              "déclaré ne dit pas ce que vaut le logement."),
+            ("La règle", f"Retirer une vente si son prix au m² est inférieur à {b['seuil'] * 100:.0f} % de la "
+                         "médiane de son code postal, de son type de bien et de son année. Une règle métier fixée à "
+                         "l'avance et appliquée à toutes les années, et non la suppression des pires prédictions, "
+                         "qui fausserait l'évaluation."),
+            ("Où on en est", f"La règle est écrite dans le nettoyage, mais le modèle présenté ici a été entraîné "
+                             f"avant qu'elle soit appliquée : {b['nb']} ventes hors marché sont encore dans ses "
+                             f"données, dont {b['nb_test']} en 2025. Les scores ci-dessus les incluent. Elles "
+                             "pèsent peu sur l'erreur médiane, davantage sur l'erreur moyenne. Prochaine étape : "
+                             "régénérer les données et réentraîner."),
+        ]), unsafe_allow_html=True)
 
 
 def onglet_modele():
@@ -405,9 +713,12 @@ def onglet_modele():
         importance = importance_variables(charger_estimateur().modele).rename(index=NOMS).head(10)
         droite.altair_chart(graphique_importance(importance), width="stretch")
 
+    section_erreurs()
+    section_hors_marche()
+
     with st.container(key="section-modele-limites"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("03 — Limites", "Ce qu'il ignore"), unsafe_allow_html=True)
+        gauche.markdown(entete("05 — Limites", "Ce qu'il ignore"), unsafe_allow_html=True)
         droite.markdown(liste_filets([
             ("L'état du bien", "Ni l'étage, ni la vue, ni les travaux, ni le diagnostic énergétique."),
             ("Le territoire", "La seule commune de Montpellier."),
@@ -418,8 +729,59 @@ def onglet_modele():
         ]), unsafe_allow_html=True)
 
 
+@st.cache_data
+def entonnoir():
+    """Lignes restantes après chaque étape du nettoyage, lues dans le rapport."""
+    return pd.read_csv(ENTONNOIR)
+
+
+def section_parcours(tableau):
+    """02 — le parcours des données, du téléchargement à cette page."""
+    modele = tableau.loc[tableau["appliquee"], "lignes"].iloc[-1]
+    etapes = [
+        {"titre": "Collecte", "texte": f"Ventes DVF {annees.min()}–{annees.max()} et lieux OpenStreetMap.",
+         "script": "src/ingest.py", "sortie": "data/raw/"},
+        {"titre": "Nettoyage", "texte": f"Une ligne = la vente d'un seul logement : {nombre(modele)} ventes.",
+         "script": "src/clean.py", "sortie": "ventes_clean.parquet"},
+        {"titre": "Variables", "texte": f"{len(VARIABLES)} variables : surface, pièces, emplacement, distances "
+                                        "et densités de lieux.",
+         "script": "src/features.py", "sortie": "ventes_features.parquet"},
+        {"titre": "Modèles", "texte": f"Appris sur {ANNEES_TRAIN[0]}–{ANNEE_VALIDATION}, testé une seule fois "
+                                      f"sur {ANNEE_TEST}.",
+         "script": "src/train.py · tune.py · final.py", "sortie": "models/ et reports/"},
+        {"titre": "Application", "texte": "Géocodage IGN, estimation, explication SHAP et comparables.",
+         "script": "app/streamlit_app.py", "sortie": "cette page"},
+    ]
+    with st.container(key="section-ombre-a-propos-parcours"):
+        st.markdown(entete(
+            "02 — Parcours", "Le chemin des données",
+            "Chaque étape est un script qui lit le fichier de la précédente et écrit le sien.",
+        ), unsafe_allow_html=True)
+        st.markdown(schema_parcours(etapes), unsafe_allow_html=True)
+
+
+def section_entonnoir(tableau):
+    """03 — combien de lignes restent après chaque étape du nettoyage."""
+    appliquees = tableau[tableau["appliquee"]]
+    regle = tableau[~tableau["appliquee"]]
+    pointille = (
+        f" En pointillé, la règle des ventes hors marché (−{nombre(regle['retirees'].iloc[0])}) : écrite dans "
+        "le nettoyage, pas encore appliquée aux données du modèle (voir l'onglet «\u00a0Le modèle\u00a0»)."
+        if len(regle) else ""
+    )
+    with st.container(key="section-a-propos-entonnoir"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "03 — Nettoyage",
+            f"De {nombre(appliquees['lignes'].iloc[0])} lignes à {nombre(appliquees['lignes'].iloc[-1])} ventes",
+            "Une vente DVF occupe souvent plusieurs lignes (une par lot : logement, cave, parking). Chaque étape "
+            "indique ce qui reste, et ce qu'elle a retiré." + pointille,
+        ), unsafe_allow_html=True)
+        droite.altair_chart(graphique_entonnoir(tableau), width="stretch")
+
+
 def onglet_a_propos():
-    """Démarche et sources des données."""
+    """Démarche, parcours des données, entonnoir du nettoyage et sources."""
     with st.container(key="section-a-propos-demarche"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
@@ -436,9 +798,13 @@ def onglet_a_propos():
             ("Explicabilité", "Les valeurs SHAP montrent ce qui fait monter ou baisser chaque estimation."),
         ]), unsafe_allow_html=True)
 
+    tableau = entonnoir()
+    section_parcours(tableau)
+    section_entonnoir(tableau)
+
     with st.container(key="section-ombre-a-propos-sources"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("02 — Sources", "Les données"), unsafe_allow_html=True)
+        gauche.markdown(entete("04 — Sources", "Les données"), unsafe_allow_html=True)
         droite.markdown(liste_filets([
             ('<a href="https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/">'
              "Demandes de valeurs foncières</a>", "data.gouv.fr — les ventes immobilières."),
@@ -470,9 +836,15 @@ def pied_de_page():
 
 
 adresse = hero()
-estimer, modele, a_propos = st.tabs(["Estimer", "Le modèle", "À propos"])
+estimer, explorer, comparer, modele, a_propos = st.tabs(
+    ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
+)
 with estimer:
     onglet_estimer(adresse)
+with explorer:
+    onglet_explorer()
+with comparer:
+    onglet_comparer()
 with modele:
     onglet_modele()
 with a_propos:

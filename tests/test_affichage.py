@@ -80,3 +80,58 @@ def test_graphique_comparaison_trois_scores():
     spec = json.dumps(graphique_comparaison(resultats).to_dict(), ensure_ascii=False)
     for score in ["Erreur moyenne", "Erreur médiane", "Prix à ±10\u202f%"]:
         assert score in spec
+
+
+def test_couleur_classe_suit_les_bornes():
+    from affichage import RAMPE, bornes_classes, couleur_classe
+    bornes = bornes_classes(pd.Series(range(1, 101)))
+    assert len(bornes) == len(RAMPE) - 1 and bornes == sorted(bornes)
+    assert couleur_classe(0, bornes) == [0xDC, 0xE3, 0xD9]  # la plus claire
+    assert couleur_classe(1000, bornes) == [0x1F, 0x3B, 0x2D]  # le vert bouteille
+
+
+def test_legende_carte_une_pastille_par_classe():
+    from affichage import RAMPE, legende_carte
+    legende = legende_carte([2000, 3000, 4000, 5000], euros)
+    assert legende.count("<li>") == len(RAMPE)
+    assert "moins de 2000 €" in legende and "5000 € et plus" in legende and "3000 € – 4000 €" in legende
+
+
+def test_ecart_estimations():
+    from affichage import ecart_estimations
+    a = {"prix": 200_000, "prix_m2": 4_000, "prix_bas": 180_000, "prix_haut": 230_000}
+    b = {"prix": 250_000, "prix_m2": 5_000, "prix_bas": 220_000, "prix_haut": 280_000}
+    ecart = ecart_estimations(a, b)
+    assert ecart["ecart"] == 50_000 and ecart["ecart_pct"] == 25 and ecart["ecart_m2"] == 1_000
+    assert ecart["chevauchement"]  # 220 000 – 230 000 en commun
+    loin = {**b, "prix_bas": 240_000}
+    assert not ecart_estimations(a, loin)["chevauchement"]
+    assert ecart_estimations(b, a)["ecart"] == -50_000
+
+
+def test_graphique_erreurs_texte_et_repere():
+    from affichage import graphique_erreurs
+    erreurs = pd.DataFrame({"groupe": ["34000", "34070"], "erreur_mediane": [11.2, 10.8], "nb_ventes": [1480, 1465]})
+    spec = json.dumps(graphique_erreurs(erreurs, 10.8).to_dict(), ensure_ascii=False)
+    assert "11,2 %  ·  1 480 ventes" in spec
+    assert '"x": 10.8' in spec  # le filet de l'erreur médiane globale
+
+
+def test_graphique_entonnoir_trois_statuts():
+    from affichage import graphique_entonnoir
+    tableau = pd.DataFrame({
+        "etape": ["Lignes brutes", "Filtrées", "Règle"], "lignes": [1000, 800, 750],
+        "retirees": [0, 200, 50], "appliquee": [True, True, False],
+    })
+    spec = json.dumps(graphique_entonnoir(tableau).to_dict(), ensure_ascii=False)
+    for statut in ["Étape appliquée", "Données du modèle", "Étape à appliquer"]:
+        assert statut in spec
+    assert "800   −200" in spec and '"Texte": "1 000"' in spec
+
+
+def test_schema_parcours_une_case_par_etape_et_texte_protege():
+    from affichage import schema_parcours
+    etapes = [{"titre": "Collecte", "texte": "<b>DVF</b>", "script": "src/ingest.py", "sortie": "data/raw"},
+              {"titre": "App", "texte": "Streamlit", "script": "app/streamlit_app.py", "sortie": "le site"}]
+    html = schema_parcours(etapes)
+    assert html.count("<li>") == 2 and "<b>DVF</b>" not in html and "src/ingest.py" in html

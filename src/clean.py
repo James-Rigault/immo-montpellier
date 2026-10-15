@@ -71,33 +71,54 @@ def construire_ventes(locaux, resume):
     )
     return ventes.reset_index(drop=True)
 
+def mediane_locale(v):
+    """Prix au m² médian des ventes du même code postal, du même type de bien et de la même année."""
+    annee = v["date_mutation"].dt.year
+    return v.groupby([v["code_postal"], v["type_local"], annee])["prix_m2"].transform("median")
+
+
 def retirer_prix_anormaux(v, seuil=SEUIL_RELATIF):
     """Retire les ventes très en dessous du prix local : viagers, ventes partielles, ventes familiales..."""
-    annee = v["date_mutation"].dt.year
-    mediane_locale = v.groupby([v["code_postal"], v["type_local"], annee])["prix_m2"].transform("median")
-    return v[v["prix_m2"] >= seuil * mediane_locale]
+    return v[v["prix_m2"] >= seuil * mediane_locale(v)]
 
 
+def compter(etapes, nom, v):
+    """Note le nombre de lignes restantes après une étape, si on tient le compte."""
+    if etapes is not None:
+        etapes[nom] = len(v)
 
 
-
-
-
-def filtrer_aberrations(ventes):
-    """Retire les données manquantes, les surfaces impossibles et les prix au m² extrêmes."""
+def preparer(ventes, etapes=None):
+    """Retire les données manquantes et les surfaces impossibles, puis calcule le prix au m²."""
     v = ventes.dropna(subset=["valeur_fonciere", "surface_reelle_bati", "latitude", "longitude"])
+    compter(etapes, "Données complètes", v)
     v = v[v["surface_reelle_bati"].between(SURFACE_MIN, SURFACE_MAX)]
+    compter(etapes, f"Surfaces de {SURFACE_MIN} à {SURFACE_MAX} m²", v)
     v = v[v["nombre_pieces_principales"] >= 1]
-    v = v.assign(prix_m2=v["valeur_fonciere"] / v["surface_reelle_bati"])
-    v = retirer_prix_anormaux(v)  # nouvelle ligne
+    compter(etapes, "Au moins une pièce", v)
+    return v.assign(prix_m2=v["valeur_fonciere"] / v["surface_reelle_bati"])
+
+
+def filtrer_aberrations(ventes, etapes=None, seuil=SEUIL_RELATIF):
+    """Retire les données manquantes, les surfaces impossibles et les prix au m² extrêmes.
+
+    Si `etapes` est un dictionnaire, on y ajoute le nombre de ventes restantes après chaque filtre.
+    `seuil=None` saute la règle des ventes hors marché (c'est ainsi qu'ont été produites les données du modèle actuel).
+    """
+    v = preparer(ventes, etapes)
+    if seuil is not None:
+        v = retirer_prix_anormaux(v, seuil)
+        compter(etapes, "Sans ventes hors marché", v)
     # bornes calculées séparément pour les appartements et les maisons
     bornes = v.groupby("type_local")["prix_m2"].quantile([QUANTILE_BAS, QUANTILE_HAUT]).unstack()
     bas = v["type_local"].map(bornes[QUANTILE_BAS])
     haut = v["type_local"].map(bornes[QUANTILE_HAUT])
-    return v[v["prix_m2"].between(bas, haut)].reset_index(drop=True)
+    v = v[v["prix_m2"].between(bas, haut)].reset_index(drop=True)
+    compter(etapes, "Sans les 1 % de prix extrêmes", v)  # 1 % le moins cher et 1 % le plus cher
+    return v
 
 
-def nettoyer(df):
+def nettoyer(df, seuil=SEUIL_RELATIF):
     """Enchaîne toutes les étapes et compte ce qui reste après chacune."""
     etapes = {"Lignes brutes": len(df)}
     ventes_brutes = garder_ventes(df)
@@ -106,8 +127,7 @@ def nettoyer(df):
     resume = resumer_mutations(ventes_brutes, locaux)
     ventes = construire_ventes(locaux, resume)
     etapes["Ventes d'un seul logement"] = len(ventes)
-    propres = filtrer_aberrations(ventes)
-    etapes["Après filtres"] = len(propres)
+    propres = filtrer_aberrations(ventes, etapes, seuil)
     return propres, etapes
 
 def test_retirer_prix_anormaux():
