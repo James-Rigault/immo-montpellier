@@ -1,4 +1,6 @@
 """Agrégations du marché : carte en hexagones, évolution des prix, prix selon le nombre de pièces."""
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -97,3 +99,24 @@ def prix_selon_pieces(ventes, pieces_max=PIECES_MAX, min_ventes=MIN_VENTES):
     stats = stats[stats["nb_ventes"] >= min_ventes].reset_index(drop=True)
     stats["Pièces"] = [f"{p} et +" if p == pieces_max else str(p) for p in stats["pieces"]]
     return stats
+
+
+QUARTIERS = Path(__file__).resolve().parents[1] / "data" / "external" / "osm" / "quartiers.csv"
+
+
+def quartiers(fichier=QUARTIERS):
+    """Nom et position des 7 quartiers de Montpellier (place=suburb dans OpenStreetMap), pour la carte.
+
+    Téléchargés une seule fois, puis relus depuis le disque : l'app n'interroge jamais OSM en ligne.
+    Les sous-quartiers (place=quarter) ne sont pas gardés : au centre, leurs noms se chevaucheraient.
+    """
+    if fichier.exists():
+        return pd.read_csv(fichier)
+    import osmnx as ox
+    lieux = ox.features_from_point(CENTRE_MONTPELLIER, tags={"place": "suburb"}, dist=7000)
+    lieux = lieux[lieux.geometry.geom_type == "Point"]
+    tableau = pd.DataFrame({"nom": lieux["name"].to_numpy(), "latitude": lieux.geometry.y.round(5).to_numpy(),
+                            "longitude": lieux.geometry.x.round(5).to_numpy()}).sort_values("nom")
+    fichier.parent.mkdir(parents=True, exist_ok=True)
+    tableau.to_csv(fichier, index=False)
+    return tableau

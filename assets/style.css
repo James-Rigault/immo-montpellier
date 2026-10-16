@@ -42,6 +42,7 @@
 [data-testid="stDecoration"],
 [data-testid="stStatusWidget"],
 [data-testid="stSpinner"],
+[data-testid="stHeaderActionElements"],
 footer { display: none !important; }
 
 .stApp { background: var(--fond); }
@@ -53,17 +54,11 @@ footer { display: none !important; }
 .prix-estime, .chiffre b, .simulation b { font-variant-numeric: lining-nums proportional-nums; }
 
 
-/* Bandeau : logo et nom à gauche, liens à droite */
-.bandeau {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 0.9rem var(--marge); background: var(--fond);
-}
-.stApp a.marque { display: flex; align-items: center; gap: 0.75rem; border: none; color: var(--encre) !important; }
-.marque img { height: 38px; width: 38px; display: block; }
-.marque-nom { font-family: var(--serif); font-weight: 600; font-size: 1.45rem; line-height: 1; letter-spacing: 0.01em; }
-.bandeau nav { display: flex; gap: 1.5rem; }
-.stApp .bandeau nav a { font-size: 0.92rem; color: var(--texte-doux) !important; border-bottom: none; }
-.stApp .bandeau nav a:hover { color: var(--vert) !important; }
+/* Bandeau : le logo seul, mis en avant */
+.bandeau { display: flex; align-items: center; padding: 1.1rem var(--marge) 0.9rem; background: var(--fond); }
+.stApp a.marque { display: block; border: none; line-height: 0; border-radius: 12px; transition: transform 0.15s, box-shadow 0.15s; }
+.stApp a.marque:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(42, 61, 47, 0.18); }
+.marque img { height: 58px; width: 58px; display: block; border-radius: 12px; box-shadow: 0 2px 8px rgba(42, 61, 47, 0.15); }
 
 /* Onglets */
 [data-testid="stTabs"] [role="tablist"] { padding: 0 var(--marge); gap: 2rem; border-bottom: 1px solid var(--filet); }
@@ -107,9 +102,9 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
   gap: 2.5rem;
   background-color: var(--fond);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 520' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='none' stroke='%232A3D2F' stroke-opacity='0.07' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M-20 420 C 180 380 260 250 420 240 S 700 300 820 200 S 1060 60 1220 90'/%3E%3Cpath d='M-20 120 C 160 160 300 140 430 230 S 640 420 860 400 S 1100 330 1220 360'/%3E%3Cpath d='M300 -20 C 330 120 380 200 430 240 S 520 380 500 540'/%3E%3C/g%3E%3Cg fill='%23C9A86A' fill-opacity='0.55'%3E%3Ccircle cx='420' cy='240' r='6'/%3E%3Ccircle cx='820' cy='200' r='5'/%3E%3Ccircle cx='860' cy='400' r='5'/%3E%3C/g%3E%3C/svg%3E");
-  /* le motif reste à droite, derrière la carte de saisie : il ne croise jamais le titre */
-  background-size: auto 120%;
-  background-position: right -160px center;
+  /* le motif reste dans la moitié droite, derrière la carte de saisie : il ne croise jamais le titre */
+  background-size: 58% auto;
+  background-position: right top;
   background-repeat: no-repeat;
   border-top: none;
 }
@@ -301,9 +296,8 @@ ol.parcours code { display: block; background: none; padding: 0; color: var(--en
 /* Pied de page : bande verte, la couleur du logo */
 .st-key-pied { background: var(--vert); color: var(--pied-texte); padding: clamp(2.5rem, 5vw, 4rem) var(--marge) 2.2rem; gap: 0; border-top: 3px solid var(--dore); }
 .pied-grille { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2.5rem; align-items: end; }
-.pied-marque { display: flex; align-items: center; gap: 0.75rem; }
-.pied-marque img { height: 34px; width: 34px; }
-.st-key-pied p.pied-titre { font-family: var(--serif); font-weight: 600; font-size: 1.6rem !important; line-height: 1.1; margin: 0 !important; color: var(--pied-texte); }
+/* sur le fond vert, un liseré clair fait ressortir le carré du logo (le logo lui-même ne change pas) */
+.pied-marque img { height: 56px; width: 56px; display: block; border-radius: 12px; box-shadow: 0 0 0 1px rgba(244, 242, 236, 0.45); }
 .st-key-pied p { color: var(--pied-texte); margin: 0.4rem 0 0 !important; }
 .st-key-pied .etiquette { color: var(--pied-doux); }
 .st-key-pied a { color: var(--pied-texte) !important; border-bottom-color: var(--dore); }
@@ -331,15 +325,9 @@ ol.parcours code { display: block; background: none; padding: 0; color: var(--en
   .simulation { grid-template-columns: 1fr; }
   .simulation > div + div { border-left: none; padding-left: 0; }
   .pied-grille { grid-template-columns: 1fr; gap: 1.2rem; }
-  .bandeau nav { gap: 1rem; }
-  .marque-nom { font-size: 1.2rem; }
+  .marque img { height: 48px; width: 48px; }
   [class*="st-key-carte-"] { border-radius: 12px; }
 }
 @media (max-width: 420px) {
-  .marque-nom { font-size: 1.05rem; }
-  .marque img { height: 34px; width: 34px; }
   .st-key-hero { background-image: none; }
-}
-@media (max-width: 360px) {
-  .marque-nom { display: none; }
 }

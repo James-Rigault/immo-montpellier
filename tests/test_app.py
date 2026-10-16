@@ -72,13 +72,15 @@ def test_onglets_et_pied_de_page():
     assert [onglet.label for onglet in app.tabs] == ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
     assert "Limites" in "".join(m.value for m in app.tabs[3].markdown)
     assert "data.gouv.fr" in "".join(m.value for m in app.tabs[4].markdown)
-    # le lien LinkedIn n'est pas renseigné : il ne doit pas apparaître vide
     pied = next(m.value for m in app.markdown if 'class="pied-grille"' in m.value)
-    assert 'href=""' not in pied and "github.com/James-Rigault/immo-montpellier" in pied
-    # bandeau : logo (le fichier tel quel, en ligne), nom de l'app, liens Méthode et GitHub
+    assert "James Rigault" in pied and "GitHub" not in pied
+    # bandeau : le logo seul (le fichier tel quel, en ligne), sans nom ni liens
     bandeau = next(m.value for m in app.markdown if 'class="bandeau"' in m.value)
-    assert "data:image/svg+xml;base64," in bandeau and "Valeur Montpellier" in bandeau
-    assert ">Méthode<" in bandeau and ">GitHub<" in bandeau
+    assert "data:image/svg+xml;base64," in bandeau and "<nav" not in bandeau
+    # les liens Méthode et GitHub sont dans l'onglet À propos
+    a_propos = "".join(m.value for m in app.tabs[4].markdown)
+    assert ">Méthode<" in a_propos and ">GitHub<" in a_propos and "github.com/James-Rigault/immo-montpellier" in a_propos
+    assert "Valeur Montpellier" not in "".join(m.value for m in app.markdown)
 
 
 @pytest.mark.parametrize("type_local, annee", [("Tous", "Toutes"), ("Appartement", 2023), ("Maison", 2025)])
@@ -89,6 +91,9 @@ def test_explorer_le_marche_suit_les_filtres(type_local, annee):
     assert not app.exception
     graphiques = [str(json.loads(g.proto.spec)) for g in app.tabs[1].get("vega_lite_chart")]
     assert len(graphiques) == 2 and any("Nombre de pièces" in spec for spec in graphiques)
+    # la carte porte les noms des quartiers (couche de texte au-dessus des hexagones)
+    cartes = [g.proto.json for g in app.tabs[1].get("deck_gl_json_chart")]
+    assert len(cartes) == 1 and "TextLayer" in cartes[0] and "Port Marianne" in cartes[0]
     texte = "".join(m.value for m in app.tabs[1].markdown)
     assert "affichée" in texte or "Aucune zone" in "".join(i.value for i in app.tabs[1].info)
 

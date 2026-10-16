@@ -12,7 +12,6 @@ from affichage import adresses_comparables
 
 POLICES = Path(__file__).resolve().parent / "polices"
 LOGO = Path(__file__).resolve().parents[1] / "assets" / "logo.svg"
-NOM_APP = "Valeur Montpellier"
 # même palette que assets/style.css : le vert et le doré du logo, l'encre, des gris chauds
 ENCRE, GRIS, GRIS_CLAIR, FILET = (20, 20, 20), (110, 106, 98), (185, 180, 172), (214, 210, 203)
 VERT, DORE = (42, 61, 47), (201, 168, 106)
@@ -163,16 +162,14 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
     pdf = Rapport()
     pdf.add_page()
 
-    # en-tête : le logo tel quel (fpdf2 lit le SVG), le nom de l'app et la date, puis un filet doré
-    pdf.image(LOGO, x=pdf.l_margin, y=pdf.t_margin, h=11)
-    pdf.set_xy(pdf.l_margin + 14, pdf.t_margin + 0.5)
-    pdf.set_font("Cormorant", "", 15)
-    pdf.set_text_color(*VERT)
-    pdf.cell(0, 6, NOM_APP, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_x(pdf.l_margin + 14)
-    pdf.set_font("Hanken", "", 8.5)
+    # en-tête : le logo tel quel (fpdf2 lit le SVG), la date à côté, puis un filet doré
+    pdf.image(LOGO, x=pdf.l_margin, y=pdf.t_margin, h=16)
+    pdf.set_xy(pdf.l_margin + 20, pdf.t_margin + 5.5)
+    pdf.set_font("Hanken", "", 9)
     pdf.set_text_color(*GRIS)
-    pdf.cell(0, 4.5, texte(f"Estimation du {date_longue(jour or date.today())}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, texte(f"Estimation immobilière à Montpellier, le {date_longue(jour or date.today())}"),
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_y(pdf.t_margin + 16)
     pdf.ln(4)
     pdf.filet(DORE, 0.6)
     pdf.ln(5)

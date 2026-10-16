@@ -96,3 +96,11 @@ def test_prix_selon_pieces_regroupe_les_grands_logements():
 def test_prix_selon_pieces_ecarte_les_classes_trop_maigres():
     v = pd.concat([ventes([3000] * 10, pieces=2), ventes([5000] * 3, pieces=4)])
     assert list(prix_selon_pieces(v, min_ventes=10)["Pièces"]) == ["2"]
+
+
+def test_quartiers_lus_depuis_le_fichier():
+    from marche import QUARTIERS, quartiers
+    tableau = quartiers()
+    assert QUARTIERS.exists() and len(tableau) == 7  # les 7 quartiers de Montpellier
+    assert {"Port Marianne", "Mosson", "Hôpitaux-Facultés"} <= set(tableau["nom"])
+    assert tableau["latitude"].between(43.55, 43.67).all() and tableau["longitude"].between(3.78, 3.95).all()

@@ -161,7 +161,7 @@ def graphique_importance(importance):
     base = alt.Chart(donnees).encode(
         y=alt.Y("Variable:N", sort=None, title=None, axis=alt.Axis(labelLimit=180, labelColor=ENCRE, labelPadding=10)),
         x=alt.X("part:Q", title="Part de l'importance totale, en %",
-                scale=alt.Scale(domain=[0, donnees["part"].max() * 1.2]), axis=alt.Axis(grid=True, tickCount=5)),
+                scale=alt.Scale(domain=[0, donnees["part"].max() * 1.35]), axis=alt.Axis(grid=True, tickCount=5)),
         tooltip=[alt.Tooltip("Variable:N"), alt.Tooltip("Part:N", title="Importance")],
     )
     barres = base.mark_bar(height={"band": 0.42}).encode(
@@ -194,7 +194,9 @@ def graphique_comparaison(resultats):
         x=alt.X("valeur:Q", title=None, axis=None, scale=alt.Scale(domain=[0, donnees["valeur"].max() * 1.25])),
         tooltip=[alt.Tooltip("Modèle:N"), alt.Tooltip("Score:N"), alt.Tooltip("Valeur:N")],
     )
-    couleur = alt.Color("Modèle:N", title=None, scale=alt.Scale(domain=modeles, range=[GRIS_CLAIR, ACCENT]))
+    couleur = alt.Color("Modèle:N", title=None, scale=alt.Scale(domain=modeles, range=[GRIS_CLAIR, ACCENT]),
+                        # une ligne par modèle : sur téléphone, aucun nom n'est coupé
+                        legend=alt.Legend(orient="top", direction="vertical", offset=12, labelLimit=0))
     barres = base.mark_bar(height={"band": 0.8}).encode(color=couleur)
     valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Valeur:N")
     return style_graphique((barres + valeurs).properties(height=alt.Step(24)))
@@ -295,7 +297,9 @@ def graphique_erreurs(erreurs, reference):
         f"{e:.1f} %".replace(".", ",") + f" ({n:,} ventes)".replace(",", " ")
         for e, n in zip(donnees["erreur_mediane"], donnees["nb_ventes"])
     ]
-    maximum = max(donnees["erreur_mediane"].max(), reference) * 1.6  # place pour le texte à droite
+    maximum = max(donnees["erreur_mediane"].max(), reference) * 2.2  # place pour le texte, même sur téléphone
+    # le texte commence après la barre et après le pointillé de référence : il ne le croise jamais
+    donnees["debut_texte"] = donnees["erreur_mediane"].clip(lower=reference)
     base = alt.Chart(donnees).encode(
         y=alt.Y("groupe:N", sort=None, title=None, axis=alt.Axis(labelLimit=180, labelColor=ENCRE, labelPadding=10)),
         x=alt.X("erreur_mediane:Q", title=None, scale=alt.Scale(domain=[0, maximum]),
@@ -303,7 +307,7 @@ def graphique_erreurs(erreurs, reference):
         tooltip=[alt.Tooltip("groupe:N", title="Groupe"), alt.Tooltip("Texte:N", title="Erreur médiane")],
     )
     barres = base.mark_bar(height={"band": 0.5}, color=GRIS_CLAIR)
-    valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Texte:N")
+    valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(x="debut_texte:Q", text="Texte:N")
     repere = alt.Chart(pd.DataFrame({"x": [reference]})).mark_rule(color=ACCENT, strokeDash=[3, 3]).encode(x="x:Q")
     # Streamlit compte l'axe horizontal dans la hauteur : on lui réserve 50 px en plus des barres
     return style_graphique((barres + valeurs + repere).properties(height=34 * len(donnees) + 50))
@@ -403,3 +407,39 @@ def adresses_comparables(comparables):
     """« 12 Rue De La Loge » pour chaque vente comparable (sans numéro s'il est inconnu)."""
     numero = comparables["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
     return (numero + " " + comparables["adresse_nom_voie"].str.title()).str.strip()
+
+
+def rayon_cercle(nb):
+    """Rayon en pixels d'un cercle de la carte des comparables, selon le nombre de ventes qu'il porte."""
+    return 11 + 5 * (nb - 1)
+
+
+def regrouper_proches(latitudes, longitudes, zoom, marge=4):
+    """Numéro de groupe de chaque vente : deux cercles qui se toucheraient à ce zoom sont fusionnés.
+
+    On fusionne, deux par deux, les cercles qui se chevauchent, jusqu'à ce qu'il n'en reste aucun :
+    sur la carte, deux numéros ne se recouvrent jamais.
+    """
+    import math
+    metres_par_pixel = 156_543.03 * math.cos(math.radians(sum(latitudes) / len(latitudes))) / 2 ** zoom
+    x = [lon * 111_320 * math.cos(math.radians(lat)) / metres_par_pixel for lat, lon in zip(latitudes, longitudes)]
+    y = [lat * 110_574 / metres_par_pixel for lat in latitudes]
+    groupes = [[i] for i in range(len(x))]
+    fusion = True
+    while fusion:
+        fusion = False
+        centres = [(sum(x[i] for i in g) / len(g), sum(y[i] for i in g) / len(g)) for g in groupes]
+        for a in range(len(groupes)):
+            for b in range(a + 1, len(groupes)):
+                distance = math.dist(centres[a], centres[b])
+                if distance < rayon_cercle(len(groupes[a])) + rayon_cercle(len(groupes[b])) + marge:
+                    groupes[a] += groupes.pop(b)
+                    fusion = True
+                    break
+            if fusion:
+                break
+    numero = {}
+    for k, g in enumerate(groupes):
+        for i in g:
+            numero[i] = k
+    return [numero[i] for i in range(len(x))]

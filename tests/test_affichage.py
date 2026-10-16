@@ -144,3 +144,17 @@ def test_jauge_affaire_place_les_trois_reperes():
     assert 0 < gauche < p["estimation"] < gauche + largeur < p["demande"] < 100
     jauge = jauge_affaire(250_000, 200_000, 300_000, 400_000, euros)
     assert "Prix demandé : 400000 €" in jauge and jauge.count("<li>") == 3
+
+
+def test_regrouper_proches_aucun_cercle_ne_se_chevauche():
+    import math
+    from affichage import rayon_cercle, regrouper_proches
+    # trois ventes dans le même immeuble, une à 20 m, une à 300 m
+    lat = [43.61, 43.61, 43.61001, 43.61018, 43.6127]
+    lon = [3.875, 3.875, 3.87501, 3.875, 3.875]
+    groupes = regrouper_proches(lat, lon, zoom=16)
+    assert groupes[0] == groupes[1] == groupes[2] == groupes[3]  # 20 m : les cercles se toucheraient
+    assert groupes[4] != groupes[0]
+    # à un zoom plus fort, la vente à 20 m a de nouveau son propre cercle
+    assert len(set(regrouper_proches(lat, lon, zoom=19))) == 3
+    assert rayon_cercle(1) == 11 and rayon_cercle(3) == 21

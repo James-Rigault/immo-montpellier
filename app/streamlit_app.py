@@ -3,7 +3,6 @@ import base64
 import json
 import sys
 from contextlib import contextmanager
-from html import escape
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from batiments import lettre_dpe  # noqa: E402
 from affaire import analyser_prix, position_comparables  # noqa: E402
 from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
-from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
+from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces, quartiers  # noqa: E402
 from train import ANNEE_TEST, ANNEE_VALIDATION, ANNEES_TRAIN, VARIABLES  # noqa: E402
 from predict import AdresseIntrouvable, Estimateur, geocoder_complet, niveau_confiance, suggestions  # noqa: E402
 from rapport_pdf import rapport_pdf  # noqa: E402
@@ -25,14 +24,12 @@ from affichage import (  # noqa: E402
     adresses_comparables, badge_confiance, bornes_classes, jauge_affaire, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
     graphique_courbe,
     graphique_entonnoir, graphique_erreurs, graphique_evolution, graphique_facteurs, graphique_importance, graphique_pieces, importance_variables,
-    legende_carte, regrouper_facteurs, schema_parcours,
+    legende_carte, rayon_cercle, regrouper_facteurs, regrouper_proches, schema_parcours,
 )
 
-NOM_APP = "Valeur Montpellier"
-# un lien laissé vide n'est pas affiché dans le pied de page
+AUTEUR = "James Rigault"
 LIEN_GITHUB = "https://github.com/James-Rigault/immo-montpellier"
 LIEN_METHODE = f"{LIEN_GITHUB}#démarche"
-LIEN_LINKEDIN = ""
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 LOGO = ASSETS / "logo.svg"
@@ -72,7 +69,7 @@ def noms_facteurs(r):
     """Noms lisibles des facteurs SHAP ; la classe DPE, reprise du bâtiment, est précisée entre parenthèses."""
     return {**NOMS, "dpe_classe": f"Classe DPE du bâtiment ({lettre_dpe(r.get('dpe_classe')) or 'inconnue'})"}
 
-st.set_page_config(page_title=f"{NOM_APP} : estimation immobilière", page_icon=str(LOGO), layout="wide")
+st.set_page_config(page_title="Estimation immobilière à Montpellier", page_icon=str(LOGO), layout="wide")
 
 
 @st.cache_resource(show_spinner=False)
@@ -187,11 +184,10 @@ def champ_adresse(cle, exemple, libelle="Adresse"):
 
 
 def bandeau():
-    """Logo et nom de l'app à gauche, deux liens discrets à droite."""
+    """Le logo seul, en haut à gauche."""
     st.markdown(f"""
 <header class="bandeau">
-  <a class="marque" href="./" target="_self"><img src="{LOGO_URI}" alt="Logo {NOM_APP}"><span class="marque-nom">{NOM_APP}</span></a>
-  <nav><a href="{LIEN_METHODE}" target="_blank">Méthode</a><a href="{LIEN_GITHUB}" target="_blank">GitHub</a></nav>
+  <a class="marque" href="./" target="_self"><img src="{LOGO_URI}" alt="Logo"></a>
 </header>""", unsafe_allow_html=True)
 
 
@@ -383,34 +379,38 @@ def carte_comparables(r):
         f"{n}. {a} : {euros(p)} ({s:.0f} m²)"
         for n, a, p, s in zip(comp["repere"], comp["adresse"], comp["valeur_fonciere"], comp["surface_reelle_bati"])
     ]
-    # les ventes au même endroit (même immeuble) sont regroupées sur un seul point
-    comp["cle"] = comp["latitude"].round(5).astype(str) + "," + comp["longitude"].round(5).astype(str)
+    # les ventes dont les cercles se toucheraient à ce zoom partagent un seul cercle, agrandi selon
+    # le nombre de ventes : les numéros ne se recouvrent jamais
+    zoom = 16
+    comp["cle"] = regrouper_proches(list(comp["latitude"]), list(comp["longitude"]), zoom)
     groupes = comp.groupby("cle", sort=False).agg(
-        lat=("latitude", "first"),
-        lon=("longitude", "first"),
+        lat=("latitude", "mean"),
+        lon=("longitude", "mean"),
         repere=("repere", ", ".join),
         info=("info", "\n".join),
+        nb=("repere", "size"),
     ).reset_index(drop=True)
-
-    estime = pd.DataFrame({
-        "lat": [r["latitude"]], "lon": [r["longitude"]],
-        "repere": [""], "info": [f"Bien estimé : {r['adresse']}"],
-    })
-    points = pd.concat([estime, groupes], ignore_index=True)
-    # le bien estimé en doré, les ventes en vert : les deux couleurs du logo
-    points["couleur"] = [[201, 168, 106]] + [[42, 61, 47]] * len(groupes)
+    groupes["rayon"] = groupes["nb"].map(rayon_cercle)
 
     cercles = pdk.Layer(
-        "ScatterplotLayer", data=points, get_position="[lon, lat]", get_fill_color="couleur",
-        get_radius=6, radius_min_pixels=9, radius_max_pixels=12, pickable=True,
+        "ScatterplotLayer", data=groupes, get_position="[lon, lat]", get_fill_color=[42, 61, 47],
+        get_radius="rayon", radius_units=String("pixels"), pickable=True,
         stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1.5,
     )
     numeros = pdk.Layer(
-        "TextLayer", data=points[points["repere"] != ""], get_position="[lon, lat]", get_text="repere",
+        "TextLayer", data=groupes, get_position="[lon, lat]", get_text="repere",
         get_size=11, get_color=[255, 255, 255], font_family=String("Hanken Grotesk, Arial, sans-serif"),
         get_text_anchor=String("middle"), get_alignment_baseline=String("center"),
     )
-    vue = pdk.ViewState(latitude=r["latitude"], longitude=r["longitude"], zoom=16)
+    # le logement estimé : un anneau doré, au-dessus des cercles mais sous les numéros, visible même s'il
+    # tombe sur une vente
+    estime = pd.DataFrame({"lat": [r["latitude"]], "lon": [r["longitude"]], "info": [f"Bien estimé : {r['adresse']}"],
+                           "rayon": [groupes["rayon"].max() + 7]})
+    anneau = pdk.Layer(
+        "ScatterplotLayer", data=estime, get_position="[lon, lat]", get_radius="rayon", radius_units=String("pixels"),
+        filled=False, stroked=True, get_line_color=[201, 168, 106], line_width_min_pixels=3, pickable=True,
+    )
+    vue = pdk.ViewState(latitude=r["latitude"], longitude=r["longitude"], zoom=zoom)
 
     tableau = pd.DataFrame({
         "N°": comp["repere"],
@@ -426,11 +426,11 @@ def carte_comparables(r):
     with st.container(key="carte-comparables"):
         st.markdown(titre_carte(
             "Ventes comparables",
-            "Les ventes du même type et de surface proche les plus près de l'adresse. Le point doré est le "
-            "logement estimé, les points verts renvoient aux numéros du tableau.",
+            "Les ventes du même type et de surface proche les plus près de l'adresse. L'anneau doré marque le "
+            "logement estimé, les cercles verts renvoient aux numéros du tableau.",
         ), unsafe_allow_html=True)
         st.pydeck_chart(pdk.Deck(
-            layers=[cercles, numeros], initial_view_state=vue, tooltip={"text": "{info}"},
+            layers=[cercles, anneau, numeros], initial_view_state=vue, tooltip={"text": "{info}"},
             map_provider="carto", map_style=pdk.map_styles.CARTO_LIGHT,
         ))
         st.dataframe(tableau, hide_index=True, width="stretch")
@@ -518,6 +518,11 @@ def zones_marche(type_local, annee):
 
 
 @st.cache_data(show_spinner=False)
+def noms_quartiers():
+    return quartiers()
+
+
+@st.cache_data(show_spinner=False)
 def evolution_marche():
     return evolution_prix(charger_estimateur().ventes)
 
@@ -525,6 +530,13 @@ def evolution_marche():
 @st.cache_data(show_spinner=False)
 def pieces_marche(type_local, annee):
     return prix_selon_pieces(filtrer(charger_estimateur().ventes, type_local, annee))
+
+
+def sur_telephone():
+    """Vrai sur un téléphone, d'après le navigateur : la carte, plus étroite, est alors un peu dézoomée
+    pour que toute la ville et les noms des quartiers y tiennent."""
+    navigateur = st.context.headers.get("User-Agent", "")
+    return any(mot in navigateur for mot in ("iPhone", "Android", "Mobile"))
 
 
 def description_filtres(type_local, annee):
@@ -565,9 +577,21 @@ def onglet_explorer():
                 # vue centrée sur l'étendue des zones affichées, pas sur la Comédie : la ville s'étend au nord
                 sommets = np.array([s for contour in zones["contour"] for s in contour])
                 centre = (sommets.min(axis=0) + sommets.max(axis=0)) / 2
-                vue = pdk.ViewState(latitude=centre[1], longitude=centre[0], zoom=11.6)
+                vue = pdk.ViewState(latitude=centre[1], longitude=centre[0], zoom=10.9 if sur_telephone() else 11.6)
+                # les noms des quartiers, au-dessus des hexagones qui cachent ceux du fond de carte
+                etiquettes = noms_quartiers()
+                noms = pdk.Layer(
+                    "TextLayer", data=etiquettes, get_position="[longitude, latitude]", get_text="nom",
+                    get_size=11 if sur_telephone() else 13, get_color=[20, 20, 20],
+                    font_family=String("Hanken Grotesk, Arial, sans-serif"),
+                    font_weight=600, get_text_anchor=String("middle"), get_alignment_baseline=String("center"),
+                    background=True, get_background_color=[255, 255, 255, 235], background_padding=[7, 4, 7, 4],
+                    # « auto » : deck.gl dessine aussi les accents (É, ô) ; String() le passe comme valeur, pas comme
+                    # expression (une liste de caractères casserait sur l'apostrophe de « Croix d'Argent »)
+                    character_set=String("auto"),
+                )
                 st.pydeck_chart(pdk.Deck(
-                    layers=[hexagones], initial_view_state=vue, tooltip={"text": "{info}"},
+                    layers=[hexagones, noms], initial_view_state=vue, tooltip={"text": "{info}"},
                     map_provider="carto", map_style=pdk.map_styles.CARTO_LIGHT,
                 ))
                 st.markdown(legende_carte(bornes, euros), unsafe_allow_html=True)
@@ -946,6 +970,16 @@ def onglet_a_propos():
     section_parcours(tableau)
     section_entonnoir(tableau)
 
+    with st.container(key="section-a-propos-code"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete("Méthode et code"), unsafe_allow_html=True)
+        droite.markdown(liste_filets([
+            (f'<a href="{LIEN_METHODE}" target="_blank">Méthode</a>',
+             "La démarche complète, les choix de nettoyage et les résultats, dans le README du projet."),
+            (f'<a href="{LIEN_GITHUB}" target="_blank">GitHub</a>',
+             "Le code source, les notebooks et les tests."),
+        ]), unsafe_allow_html=True)
+
     with st.container(key="section-ombre-a-propos-sources"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete("Sources"), unsafe_allow_html=True)
@@ -963,21 +997,14 @@ def onglet_a_propos():
         ]), unsafe_allow_html=True)
 
 
-def liens_auteur():
-    """Liens GitHub et LinkedIn, en ignorant ceux qui ne sont pas encore renseignés."""
-    liens = {"GitHub": LIEN_GITHUB, "LinkedIn": LIEN_LINKEDIN}
-    return ", ".join(f'<a href="{escape(url)}">{nom}</a>' for nom, url in liens.items() if url)
-
-
 def pied_de_page():
-    """Bande verte de fin de page : logo et nom, sources, liens."""
-    liens = liens_auteur() or "Liens à venir"
+    """Bande verte de fin de page : le logo, les sources, l'auteur."""
     with st.container(key="pied"):
         st.markdown(f"""
 <div class="pied-grille">
-  <div class="pied-marque"><img src="{LOGO_URI}" alt=""><p class="pied-titre">{NOM_APP}</p></div>
+  <div class="pied-marque"><img src="{LOGO_URI}" alt="Logo"></div>
   <div><span class="etiquette">Données</span><p>DVF {annees.min()}–{annees.max()}, OpenStreetMap, BDNB, ADEME, IGN</p></div>
-  <div><span class="etiquette">Auteur</span><p>{liens}</p></div>
+  <div><span class="etiquette">Auteur</span><p>{AUTEUR}</p></div>
 </div>
 """, unsafe_allow_html=True)
 
