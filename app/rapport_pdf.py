@@ -178,7 +178,8 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
         ("Caves et parkings", str(bien["dependances"])),
         ("Terrain", f"{bien['terrain']:.0f} m²" if bien["terrain"] else "—"),
         ("Année de construction", str(bien["annee"]) if bien.get("annee") else "Inconnue"),
-        ("Classe DPE", bien.get("dpe") or "Inconnu"),
+        ("Classe DPE du bâtiment", f"{bien['dpe']} (données du bâtiment, BDNB et ADEME)" if bien.get("dpe")
+         else "Inconnue (aucun DPE trouvé pour le bâtiment)"),
     ])
 
     pdf.section("02 — Estimation", "Prix estimé")

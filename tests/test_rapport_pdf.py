@@ -51,7 +51,7 @@ def test_rapport_complet_avec_les_bonnes_valeurs():
     assert pages >= 1
     for attendu in [
         "16 OCTOBRE 2026", "7 Rue du Bayle 34000 Montpellier",          # date et adresse
-        "Appartement", "60 m", "1930", "Classe DPE",                      # caractéristiques, dont année et DPE
+        "Appartement", "60 m", "1930", "D (données du bâtiment",          # caractéristiques, dont année et DPE
         "222 869 €", "3 714 €", "169 691 €", "279 131 €", "Moyenne",     # prix, prix au m², fourchette, confiance
         "Emplacement dans la ville", "Classe DPE du bâtiment", "+28,6 k€", "−5,3 k€",  # facteurs SHAP
         "5 Rue Du Bayle", "148 000 €", "Rue De L'École",                 # ventes comparables
@@ -63,7 +63,8 @@ def test_rapport_complet_avec_les_bonnes_valeurs():
 
 def test_rapport_sans_prix_demande_ni_annee():
     r, bien, facteurs = estimation()
-    bien = {**bien, "annee": None, "dpe": "Inconnu"}
+    bien = {**bien, "annee": None, "dpe": None}
     texte, _ = texte_pdf(rapport_pdf(r, bien, "faible", ["peu de ventes comparables"], facteurs, CHIFFRES))
-    assert "BONNE AFFAIRE" not in texte and "Inconnue" in texte and "Faible" in texte
+    assert "BONNE AFFAIRE" not in texte and "Inconnue (aucun DPE trouvé pour le bâtiment)" in texte
+    assert "Faible" in texte
     assert "03 — LECTURE" in texte  # sans « Bonne affaire ? », les sections sont renumérotées

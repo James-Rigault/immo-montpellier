@@ -12,7 +12,7 @@ import streamlit as st
 from pydeck.types import String
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from batiments import CLASSES_DPE, code_dpe, lettre_dpe  # noqa: E402
+from batiments import lettre_dpe  # noqa: E402
 from affaire import analyser_prix, position_comparables  # noqa: E402
 from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
 from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
@@ -58,7 +58,11 @@ NOMS = {
     "annee_construction": "Année de construction",
     "dpe_classe": "Classe DPE du bâtiment",
 }
-CHOIX_DPE = ["Inconnu", *CLASSES_DPE]
+
+
+def noms_facteurs(r):
+    """Noms lisibles des facteurs SHAP ; la classe DPE, reprise du bâtiment, est précisée entre parenthèses."""
+    return {**NOMS, "dpe_classe": f"Classe DPE du bâtiment ({lettre_dpe(r.get('dpe_classe')) or 'inconnue'})"}
 
 st.set_page_config(page_title="Estimation immobilière — Montpellier", layout="wide")
 
@@ -93,12 +97,13 @@ def infos_batiment(adresse):
 
 
 def note_batiment(infos):
-    """Une phrase sous le formulaire : d'où viennent l'année et le DPE pré-remplis."""
+    """Une phrase sous le formulaire : d'où viennent l'année pré-remplie et la classe DPE du bâtiment."""
     if not infos or not infos["trouve"]:
-        return "Bâtiment non retrouvé : année et DPE à renseigner si vous les connaissez."
-    dpe = (f"classe DPE médiane de {infos['nb_dpe']} DPE du bâtiment (ADEME)" if infos["nb_dpe"]
-           else "aucun DPE connu dans le bâtiment")
-    return f"Pré-rempli d'après le bâtiment : année des Fichiers fonciers (BDNB), {dpe}. Modifiable."
+        return "Bâtiment non retrouvé : année à renseigner si vous la connaissez ; classe DPE inconnue."
+    dpe = (f"classe DPE du bâtiment reprise automatiquement : {lettre_dpe(infos['dpe_classe'])} "
+           f"(médiane de {infos['nb_dpe']} DPE, ADEME)" if infos["nb_dpe"]
+           else "aucun DPE connu pour ce bâtiment")
+    return f"Année pré-remplie d'après le bâtiment (Fichiers fonciers, BDNB), modifiable ; {dpe}."
 
 
 def remplir_adresse(exemple):
@@ -208,7 +213,8 @@ def section_bien(adresse):
         ), unsafe_allow_html=True)
         infos = infos_batiment(adresse) if adresse else None
         annee_connue = infos["annee_construction"] if infos else None
-        dpe_connu = lettre_dpe(infos["dpe_classe"]) if infos else None
+        # le DPE n'est pas saisi : c'est celui du bâtiment, ou une valeur manquante s'il est inconnu
+        dpe_classe = infos["dpe_classe"] if infos else None
         with droite, st.form("formulaire", border=False):
             # une rangée de colonnes par ligne : sur téléphone, les champs s'empilent dans le bon ordre
             col1, col2 = st.columns(2, gap="large")
@@ -222,9 +228,6 @@ def section_bien(adresse):
             # la clé dépend de l'adresse : une nouvelle adresse remet les valeurs du bâtiment
             annee = col2.number_input("Année de construction", min_value=1600, max_value=pd.Timestamp.today().year,
                                       value=annee_connue, placeholder="Inconnue", key=f"annee_{adresse}")
-            col1, _ = st.columns(2, gap="large")
-            dpe = col1.selectbox("Classe DPE", CHOIX_DPE, index=CHOIX_DPE.index(dpe_connu or "Inconnu"),
-                                 key=f"dpe_{adresse}")
             if adresse:
                 st.markdown(f'<p class="note">{note_batiment(infos)}</p>', unsafe_allow_html=True)
             valider = st.form_submit_button("Estimer le prix", type="primary")
@@ -237,7 +240,7 @@ def section_bien(adresse):
         try:
             with st.spinner("Calcul en cours…"):
                 r = charger_estimateur().estimer(adresse, type_local, surface, pieces, dependances, terrain,
-                                                 annee, code_dpe(dpe))
+                                                 annee, dpe_classe)
         except AdresseIntrouvable:
             droite.error("Adresse introuvable dans la commune de Montpellier. Vérifiez l'orthographe.")
             return
@@ -246,13 +249,14 @@ def section_bien(adresse):
             return
 
     # on garde le résultat en mémoire : il reste affiché quand on bouge les curseurs du simulateur
+    r["dpe_classe"] = dpe_classe
     st.session_state["resultat"] = r
     st.session_state["bien"] = {
         "type_local": type_local, "surface": surface, "pieces": pieces,
-        "dependances": dependances, "terrain": terrain, "annee": annee, "dpe": dpe,
+        "dependances": dependances, "terrain": terrain, "annee": annee, "dpe": lettre_dpe(dpe_classe),
     }
     # nouvelle estimation : les curseurs du simulateur repartent des valeurs saisies
-    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep", "sim_dpe", "prix_demande", "affaire"]:
+    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep", "prix_demande", "affaire"]:
         st.session_state.pop(cle, None)
 
 
@@ -286,7 +290,7 @@ def section_resultat(r, bien, niveau, raisons):
 
 def bouton_rapport(emplacement, r, bien, niveau, raisons):
     """Bouton « Télécharger le rapport (PDF) » : le rapport est généré en mémoire, en une fraction de seconde."""
-    facteurs = regrouper_facteurs(r["facteurs"]).head(8).rename(index=NOMS)
+    facteurs = regrouper_facteurs(r["facteurs"]).head(8).rename(index=noms_facteurs(r))
     pdf = rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, st.session_state.get("affaire"))
     nom = "estimation-" + "-".join(r["adresse"].lower().split()[:4]) + ".pdf"
     emplacement.download_button("Télécharger le rapport (PDF)", pdf, file_name=nom, mime="application/pdf",
@@ -345,7 +349,7 @@ def section_pourquoi(r):
             f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface. Chaque caractéristique "
             "l'augmente (en noir) ou le diminue (en gris). Méthode : valeurs SHAP.",
         ), unsafe_allow_html=True)
-        principaux = regrouper_facteurs(r["facteurs"]).head(8).rename(index=NOMS)
+        principaux = regrouper_facteurs(r["facteurs"]).head(8).rename(index=noms_facteurs(r))
         droite.altair_chart(graphique_facteurs(principaux), width="stretch")
 
 
@@ -421,9 +425,7 @@ def section_simulateur(r, bien):
         with gauche:
             st.markdown(entete(
                 "05 — Simulation", "Et si…",
-                "Modifiez les caractéristiques : le prix est recalculé au même emplacement. Le DPE est celui "
-                "du bâtiment (le modèle a appris la classe médiane des logements de l'immeuble) : passer de F "
-                "à C donne un ordre de grandeur, pas la valeur de travaux.",
+                "Modifiez les caractéristiques : le prix est recalculé au même emplacement.",
             ), unsafe_allow_html=True)
             sim_type = st.radio(
                 "Type de bien", ["Appartement", "Maison"],
@@ -432,11 +434,10 @@ def section_simulateur(r, bien):
             sim_surface = st.slider("Surface (m²)", 9, 250, int(bien["surface"]), key="sim_surface")
             sim_pieces = st.slider("Nombre de pièces", 1, 10, int(bien["pieces"]), key="sim_pieces")
             sim_dep = st.slider("Caves et parkings", 0, 3, int(bien["dependances"]), key="sim_dep")
-            sim_dpe = st.select_slider("Classe DPE du bâtiment", CHOIX_DPE, value=bien["dpe"], key="sim_dpe")
 
         prix_sim = estimateur.prix(
             r["latitude"], r["longitude"], sim_type, sim_surface, sim_pieces, sim_dep, bien["terrain"],
-            bien["annee"], code_dpe(sim_dpe),
+            bien["annee"], r["dpe_classe"],
         )
         ecart = prix_sim - r["prix"]
         comparaison = (
@@ -447,7 +448,7 @@ def section_simulateur(r, bien):
         surfaces = list(range(15, 201, 5))
         prix_courbe = estimateur.prix_selon_surface(
             r["latitude"], r["longitude"], sim_type, sim_pieces, sim_dep, bien["terrain"], surfaces,
-            bien["annee"], code_dpe(sim_dpe),
+            bien["annee"], r["dpe_classe"],
         )
         with droite:
             st.markdown(f"""
@@ -624,6 +625,7 @@ def estimer_biens(biens):
                 bien["adresse"], bien["type_local"], bien["surface"], bien["pieces"],
                 annee_construction=infos["annee_construction"], dpe_classe=infos["dpe_classe"],
             )
+            resultats[nom]["dpe_classe"] = infos["dpe_classe"]  # pour nommer le facteur DPE dans l'explication
         except AdresseIntrouvable:
             st.error(f"{TITRES_BIENS[nom]} : adresse introuvable dans la commune de Montpellier.")
             return None
@@ -691,7 +693,7 @@ def onglet_comparer():
                 + "</div>",
                 unsafe_allow_html=True,
             )
-            principaux = regrouper_facteurs(r["facteurs"]).head(5).rename(index=NOMS)
+            principaux = regrouper_facteurs(r["facteurs"]).head(5).rename(index=noms_facteurs(r))
             colonne.altair_chart(graphique_facteurs(principaux), width="stretch")
 
     section_ecart(resultats)

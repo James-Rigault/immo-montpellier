@@ -147,7 +147,7 @@ def test_a_propos_parcours_et_entonnoir():
     assert "Données du modèle" in spec and "Étape à appliquer" not in spec  # la règle est appliquée
 
 
-def test_estimation_pre_remplit_annee_et_dpe_et_simule_le_dpe(monkeypatch):
+def test_annee_pre_remplie_et_dpe_repris_du_batiment_sans_saisie(monkeypatch):
     adresse = "10 Rue de la Loge 34000 Montpellier"
     reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
     monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
@@ -163,16 +163,37 @@ def test_estimation_pre_remplit_annee_et_dpe_et_simule_le_dpe(monkeypatch):
     app = lancer_app()
     app.text_input(key="texte").input("10 rue Pré-rempli").run()
     annee = next(n for n in app.number_input if n.label == "Année de construction")
-    dpe = next(s for s in app.selectbox if s.label == "Classe DPE")
     assert annee.value == int(attendu["annee_construction"])
-    assert dpe.value == lettre_dpe(attendu["dpe_classe"])
+    # pas de champ DPE : la classe du bâtiment est reprise automatiquement, et la note le dit
+    assert not any(s.label == "Classe DPE" for s in app.selectbox)
+    note = "".join(m.value for m in app.tabs[0].markdown)
+    assert f"classe DPE du bâtiment reprise automatiquement : {lettre_dpe(attendu['dpe_classe'])}" in note
 
     next(b for b in app.button if b.label == "Estimer le prix").click().run()
     assert not app.exception
-    assert {"annee_construction", "dpe_classe"} <= set(app.session_state["resultat"]["facteurs"].index)
-    # simulateur : passer le bâtiment en classe A recalcule le prix sans erreur
-    app.select_slider(key="sim_dpe").set_value("A").run()
-    assert not app.exception and app.select_slider(key="sim_dpe").value == "A"
+    r = app.session_state["resultat"]
+    assert r["dpe_classe"] == attendu["dpe_classe"] and app.session_state["bien"]["dpe"] == lettre_dpe(attendu["dpe_classe"])
+    assert {"annee_construction", "dpe_classe"} <= set(r["facteurs"].index)
+    # simulateur : plus de curseur DPE
+    assert not app.select_slider and "sim_dpe" not in app.session_state
+
+
+def test_dpe_inconnu_reste_une_valeur_manquante(monkeypatch):
+    # une adresse propre à ce test : le pré-remplissage est gardé en cache d'un test à l'autre
+    adresse = "1 Rue Sans Bâtiment 34000 Montpellier"
+    reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
+    monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (43.6110, 3.8790, adresse))
+    # adresse introuvable pour le pré-remplissage : bâtiment inconnu
+    monkeypatch.setattr(predict, "geocoder_complet", lambda texte: (_ for _ in ()).throw(predict.AdresseIntrouvable()))
+
+    app = lancer_app()
+    app.text_input(key="texte").input("10 rue Inconnue").run()
+    assert "classe DPE inconnue" in "".join(m.value for m in app.tabs[0].markdown)
+    next(b for b in app.button if b.label == "Estimer le prix").click().run()
+    assert not app.exception
+    assert app.session_state["resultat"]["dpe_classe"] is None and app.session_state["bien"]["dpe"] is None
+
 
 
 @pytest.mark.parametrize("demande, verdict", [

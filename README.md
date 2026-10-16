@@ -25,10 +25,10 @@ FONCTIONNALITÉS
 - Explication du prix : chaque estimation est décomposée facteur par facteur avec les valeurs SHAP (par exemple « +12 k€ grâce aux commerces, −7 k€ à cause de la surface »).
 - Indicateur de confiance : élevée, moyenne ou faible, selon le nombre de ventes similaires à proximité, la largeur de la fourchette et le caractère inhabituel de la surface.
 - Ventes comparables : une carte et un tableau des ventes réelles les plus proches, de même type et de surface proche, reliés par des numéros.
-- Année de construction et DPE : pré-remplis à partir du bâtiment de l'adresse (BDNB et ADEME), modifiables (DPE de A à G, ou « Inconnu »), et visibles dans l'explication SHAP.
+- Année de construction et DPE : l'année est pré-remplie à partir du bâtiment de l'adresse (BDNB) et reste modifiable ; la classe DPE n'est pas saisie : c'est celle du bâtiment (médiane des DPE de l'ADEME), laissée vide si aucun DPE n'est trouvé. Les deux apparaissent dans l'explication SHAP et dans le rapport PDF.
 - « Bonne affaire ? » : on saisit le prix d'une annonce ; l'application donne l'écart à l'estimation (en € et en %), sa place par rapport à la fourchette, un verdict (en dessous du marché, dans la fourchette, au-dessus, nettement au-dessus au-delà d'une demi-largeur de fourchette, seuil défini dans src/affaire.py), une jauge, et la position du prix au m² parmi les 10 ventes comparables. Si la confiance est faible, le verdict est formulé avec prudence.
 - Rapport PDF : un bouton « Télécharger le rapport (PDF) » produit en mémoire un rapport de 2 pages (adresse, caractéristiques dont année et DPE, prix, fourchette, confiance, facteurs SHAP, ventes comparables, verdict « Bonne affaire ? » s'il y a un prix demandé, méthode et limites), avec fpdf2 et les polices de l'application.
-- Simulateur « Et si… ? » : modifier la surface, le nombre de pièces, les dépendances ou la classe DPE et voir le prix évoluer, avec une courbe du prix selon la surface.
+- Simulateur « Et si… ? » : modifier la surface, le nombre de pièces ou les dépendances et voir le prix évoluer, avec une courbe du prix selon la surface.
 
 
 RÉSULTATS
@@ -133,7 +133,7 @@ python -m pytest
 LIMITES
 
 - Les données DVF ne contiennent ni l'état du bien, ni l'étage, ni la vue : une partie des écarts de prix est impossible à prévoir.
-- Le DPE utilisé est la classe médiane du bâtiment, pas celle du logement vendu ; le simulateur « passer de F à C » donne donc un ordre de grandeur, pas la valeur de travaux. Les DPE ne commencent qu'en juillet 2021.
+- Le DPE utilisé est la classe médiane du bâtiment, pas celle du logement vendu ; il n'est donc pas demandé à l'utilisateur. Les DPE ne commencent qu'en juillet 2021.
 - Le prix enregistré inclut les caves et parkings vendus avec le logement.
 - Le modèle ne couvre que la commune de Montpellier.
 - Les lieux OpenStreetMap sont ceux d'aujourd'hui, pas ceux de la date de chaque vente.
