@@ -350,12 +350,18 @@ def graphique_entonnoir(tableau):
         tooltip=[alt.Tooltip("etape:N", title="Étape"), alt.Tooltip("lignes:Q", title="Lignes restantes", format=","),
                  alt.Tooltip("retirees:Q", title="Lignes retirées", format=","), alt.Tooltip("statut:N", title="Statut")],
     )
+    # légende : seulement les statuts présents (plus de « à appliquer » une fois toutes les étapes faites)
+    presents = [s for s in STATUTS if s in set(donnees["statut"])]
+    couleurs = dict(zip(STATUTS, [GRIS_CLAIR, ACCENT, "transparent"]))
+    traits = dict(zip(STATUTS, [GRIS_CLAIR, ACCENT, ENCRE]))
+    pointilles = dict(zip(STATUTS, [[1, 0], [1, 0], [3, 3]]))
     barres = base.mark_bar(height={"band": 0.55}).encode(
         color=alt.Color("statut:N", title=None,
-                        scale=alt.Scale(domain=STATUTS, range=[GRIS_CLAIR, ACCENT, "transparent"]),
+                        scale=alt.Scale(domain=presents, range=[couleurs[s] for s in presents]),
                         legend=alt.Legend(orient="top", direction="vertical")),
-        stroke=alt.Stroke("statut:N", scale=alt.Scale(domain=STATUTS, range=[GRIS_CLAIR, ACCENT, ENCRE]), legend=None),
-        strokeDash=alt.StrokeDash("statut:N", scale=alt.Scale(domain=STATUTS, range=[[1, 0], [1, 0], [3, 3]]),
+        stroke=alt.Stroke("statut:N", scale=alt.Scale(domain=presents, range=[traits[s] for s in presents]),
+                          legend=None),
+        strokeDash=alt.StrokeDash("statut:N", scale=alt.Scale(domain=presents, range=[pointilles[s] for s in presents]),
                                   legend=None),
     )
     valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Texte:N")

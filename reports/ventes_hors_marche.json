@@ -1,0 +1,8 @@
+{
+  "seuil": 0.3,
+  "ventes_avant": 24184,
+  "ventes_retirees": 370,
+  "prix_m2_median_retirees": 508.90625,
+  "prix_m2_median_local": 3607.4766355140187,
+  "plus_grand_groupe": 3
+}

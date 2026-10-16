@@ -18,7 +18,7 @@ def charger_brut(raw_dir=RAW_DIR):
     if not fichiers:
         raise FileNotFoundError(f"Aucun fichier DVF dans {raw_dir}. Lance d'abord src/ingest.py")
     df = pd.concat(
-        [pd.read_csv(f, low_memory=False, dtype={"code_postal": str, "code_commune": str}) for f in fichiers],
+        [pd.read_csv(f, low_memory=False, dtype={"code_postal": str, "code_commune": str, "adresse_code_voie": str, "id_parcelle": str}) for f in fichiers],
         ignore_index=True,
     )
     df["date_mutation"] = pd.to_datetime(df["date_mutation"])
@@ -63,9 +63,10 @@ def construire_ventes(locaux, resume):
     """Garde les ventes d'un seul logement (dépendances autorisées, pas de local commercial)."""
     simples = resume[(resume["nb_logements"] == 1) & (resume["nb_autres"] == 0)].index
     logements = locaux[locaux["type_local"].isin(LOGEMENTS) & locaux["id_mutation"].isin(simples)]
+    # parcelle, code de voie et suffixe servent à retrouver le bâtiment de la vente (src/batiments.py)
     colonnes = ["id_mutation", "date_mutation", "valeur_fonciere", "type_local", "surface_reelle_bati",
-                "nombre_pieces_principales", "lot1_surface_carrez", "adresse_numero", "adresse_nom_voie",
-                "code_postal", "longitude", "latitude"]
+                "nombre_pieces_principales", "lot1_surface_carrez", "adresse_numero", "adresse_suffixe",
+                "adresse_nom_voie", "adresse_code_voie", "id_parcelle", "code_postal", "longitude", "latitude"]
     ventes = logements[colonnes].merge(
         resume[["nb_dependances", "surface_terrain_totale"]], left_on="id_mutation", right_index=True
     )

@@ -20,10 +20,10 @@ def couverture(reel, bas, haut):
     return float(np.mean((reel >= bas) & (reel <= haut)))
 
 
-def entrainer(donnees, params, **reglages):
+def entrainer(donnees, params, variables=VARIABLES, graine=42, **reglages):
     """Entraîne un LightGBM avec les réglages trouvés par Optuna."""
-    modele = LGBMRegressor(**params, subsample_freq=1, random_state=42, verbose=-1, **reglages)
-    return modele.fit(donnees[VARIABLES], donnees[CIBLE])
+    modele = LGBMRegressor(**params, subsample_freq=1, random_state=graine, verbose=-1, **reglages)
+    return modele.fit(donnees[variables], donnees[CIBLE])
 
 
 def main():

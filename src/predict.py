@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 from shapely.geometry import Point
 
+from batiments import ADRESSES_APP, TABLE_APP, en_lambert, plus_proche
 from features import (
     CENTRE_MONTPELLIER, CRS_GPS, CRS_METRES, LIEUX, LIEUX_A_COMPTER, RAYON_DENSITE,
     distance_plus_proche, nombre_dans_rayon,
@@ -28,8 +29,8 @@ class AdresseIntrouvable(Exception):
     """L'adresse n'a pas été trouvée dans la commune de Montpellier."""
 
 
-def geocoder(adresse):
-    """Transforme une adresse en (latitude, longitude, adresse officielle)."""
+def geocoder_complet(adresse):
+    """Géocode une adresse : latitude, longitude, adresse officielle et clé BAN (pour retrouver le bâtiment)."""
     reponse = requests.get(
         URL_GEOCODAGE, params={"q": adresse, "citycode": CODE_COMMUNE, "limit": 1}, timeout=10
     )
@@ -41,7 +42,13 @@ def geocoder(adresse):
     if proprietes.get("score", 0) < SCORE_MIN or proprietes.get("citycode") != CODE_COMMUNE:
         raise AdresseIntrouvable(adresse)
     longitude, latitude = resultats[0]["geometry"]["coordinates"]
-    return latitude, longitude, proprietes["label"]
+    return {"latitude": latitude, "longitude": longitude, "label": proprietes["label"], "cle_ban": proprietes.get("id")}
+
+
+def geocoder(adresse):
+    """Transforme une adresse en (latitude, longitude, adresse officielle)."""
+    resultat = geocoder_complet(adresse)
+    return resultat["latitude"], resultat["longitude"], resultat["label"]
 def suggestions(texte, n=5):
     """Propose jusqu'à n adresses officielles de Montpellier correspondant au texte tapé."""
     if len(texte.strip()) < 3:
@@ -83,11 +90,31 @@ class Estimateur:
         self.modele_haut = joblib.load(MODELES_DIR / "lightgbm_q90.joblib")
         self.lieux = {nom: gpd.read_file(POI_DIR / f"{nom}.gpkg") for nom in LIEUX}
         self.ventes = pd.read_parquet(VENTES)
+        self.batiments = pd.read_parquet(TABLE_APP)
+        self.adresses = pd.read_parquet(ADRESSES_APP).set_index("cle_interop_adr")["batiment_groupe_id"]
         centre = gpd.GeoSeries([Point(CENTRE_MONTPELLIER[1], CENTRE_MONTPELLIER[0])], crs=CRS_GPS)
         self.centre = centre.to_crs(CRS_METRES).iloc[0]
 
-    def variables(self, latitude, longitude, type_local, surface, pieces, dependances, terrain):
-        """Calcule les mêmes variables qu'à l'entraînement, pour un seul bien."""
+    def batiment(self, latitude, longitude, cle_ban=None):
+        """Année de construction et classe DPE médiane du bâtiment : par l'adresse BAN, sinon le plus proche (50 m)."""
+        identifiant, methode = self.adresses.get(cle_ban), "adresse"
+        if identifiant is None:
+            x, y = en_lambert([latitude], [longitude])
+            identifiant, methode = plus_proche(x, y, self.batiments).iloc[0], "proximité"
+        if identifiant is None:
+            return {"trouve": False, "annee_construction": None, "dpe_classe": None, "nb_dpe": 0, "methode": None}
+        ligne = self.batiments.set_index("batiment_groupe_id").loc[identifiant]
+        return {
+            "trouve": True,
+            "annee_construction": None if pd.isna(ligne["annee_construction"]) else int(ligne["annee_construction"]),
+            "dpe_classe": None if pd.isna(ligne["dpe_classe"]) else float(ligne["dpe_classe"]),
+            "nb_dpe": int(ligne["nb_dpe"]),
+            "methode": methode,
+        }
+
+    def variables(self, latitude, longitude, type_local, surface, pieces, dependances, terrain,
+                  annee_construction=None, dpe_classe=None):
+        """Calcule les mêmes variables qu'à l'entraînement, pour un seul bien (None = inconnu)."""
         point = gpd.GeoDataFrame(geometry=[Point(longitude, latitude)], crs=CRS_GPS).to_crs(CRS_METRES)
         ligne = {
             "surface_reelle_bati": surface,
@@ -99,6 +126,8 @@ class Estimateur:
             "latitude": latitude,
             "longitude": longitude,
             "dist_centre": float(point.distance(self.centre).iloc[0]),
+            "annee_construction": np.nan if annee_construction is None else annee_construction,
+            "dpe_classe": np.nan if dpe_classe is None else dpe_classe,
         }
         for nom, lieux in self.lieux.items():
             ligne[f"dist_{nom}"] = float(distance_plus_proche(point, lieux).iloc[0])
@@ -121,10 +150,12 @@ class Estimateur:
                     "latitude", "longitude"]
         return v.nsmallest(n, "distance_m")[colonnes]
 
-    def estimer(self, adresse, type_local, surface, pieces, dependances=0, terrain=0):
+    def estimer(self, adresse, type_local, surface, pieces, dependances=0, terrain=0,
+                annee_construction=None, dpe_classe=None):
         """Estimation complète : prix, fourchette, explication et comparables."""
         latitude, longitude, label = geocoder(adresse)
-        X = self.variables(latitude, longitude, type_local, surface, pieces, dependances, terrain)
+        X = self.variables(latitude, longitude, type_local, surface, pieces, dependances, terrain,
+                           annee_construction, dpe_classe)
 
         prix_m2 = float(self.modele.predict(X)[0])
         q10 = float(self.modele_bas.predict(X)[0])
@@ -151,15 +182,19 @@ class Estimateur:
             "facteurs": facteurs,
             "comparables": self.comparables(latitude, longitude, type_local, surface),
         }
-    def prix(self, latitude, longitude, type_local, surface, pieces, dependances=0, terrain=0):
+    def prix(self, latitude, longitude, type_local, surface, pieces, dependances=0, terrain=0,
+             annee_construction=None, dpe_classe=None):
         """Prix estimé seul, à partir de coordonnées déjà connues (sans géocodage)."""
-        X = self.variables(latitude, longitude, type_local, surface, pieces, dependances, terrain)
+        X = self.variables(latitude, longitude, type_local, surface, pieces, dependances, terrain,
+                           annee_construction, dpe_classe)
         return float(self.modele.predict(X)[0]) * surface
 
-    def prix_selon_surface(self, latitude, longitude, type_local, pieces, dependances, terrain, surfaces):
+    def prix_selon_surface(self, latitude, longitude, type_local, pieces, dependances, terrain, surfaces,
+                           annee_construction=None, dpe_classe=None):
         """Prix estimé pour plusieurs surfaces, au même endroit (pour tracer une courbe)."""
         surfaces = np.asarray(surfaces, dtype=float)
-        base = self.variables(latitude, longitude, type_local, surfaces[0], pieces, dependances, terrain)
+        base = self.variables(latitude, longitude, type_local, surfaces[0], pieces, dependances, terrain,
+                              annee_construction, dpe_classe)
         X = pd.concat([base] * len(surfaces), ignore_index=True)
         X["surface_reelle_bati"] = surfaces
         X["surface_par_piece"] = surfaces / pieces

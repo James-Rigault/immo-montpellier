@@ -120,3 +120,20 @@ Explicabilité (SHAP)
 Variables les plus importantes : X, X, X
 Effet du tram à autres caractéristiques égales : X €/m² à moins de 200 m, contre X €/m² à plus de 1 km
 Comparaison avec la semaine 3 : l'écart brut était de X €/m², donc une partie venait de l'effet centre-ville.
+
+ANNÉE DE CONSTRUCTION ET DPE (octobre 2026)
+
+Sources vérifiées dans leur documentation : BDNB open data département 34, millésime 2026-02.b (format v0.7.12) ;
+ADEME dpe03existant (88 508 DPE à Montpellier, juillet 2021 à octobre 2026).
+La règle des ventes hors marché est enfin appliquée : 23 338 ventes (370 retirées par la règle).
+
+Correspondance vente → bâtiment : parcelle 93,3 %, adresse BAN 6,4 %, proximité < 50 m 0,3 %, sans bâtiment 7 ventes.
+Année de construction connue : 98,9 %. DPE connu avant la vente : 20 % en 2021, 82 % en 2022, 90 % en 2023, 93 % en 2024, 95 % en 2025.
+Choix : classe DPE médiane du bâtiment, seuls les DPE établis strictement avant la vente (pas de fuite).
+
+Validation 2024 (moyenne de 5 graines, mêmes réglages) : MAE 31 679 € → 31 398 €, MAPE 17,6 % → 17,8 %,
+erreur médiane 11,3 % → 11,2 %, part à ±10 % 45,7 % → 45,5 %. Indicateur « DPE manquant » : pas de gain.
+Modèle retenu : avec année et DPE.
+
+Test 2025 lancé le 16/10/2026, une seule fois, modèle retenu : MAE 29 782 €, MAPE 15,7 %, erreur médiane 10,5 %,
+48,4 % à ±10 %, fourchette 73,0 %. Confiance : élevée 7,9 %, moyenne 12,3 %, faible 17,5 % d'erreur médiane.

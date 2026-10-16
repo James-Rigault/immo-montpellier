@@ -15,12 +15,15 @@ MODELES_DIR = Path("models")
 RAPPORTS_DIR = Path("reports")
 
 CIBLE = "prix_m2"
-VARIABLES = [
+VARIABLES_BASE = [
     "surface_reelle_bati", "nombre_pieces_principales", "surface_par_piece", "est_maison",
     "nb_dependances", "surface_terrain_totale", "latitude", "longitude",
     "dist_centre", "dist_tram", "dist_ecole", "dist_parc", "dist_commerce", "dist_restaurant",
     "nb_ecole_500m", "nb_commerce_500m", "nb_restaurant_500m",
 ]
+# bâtiment (src/batiments.py) : valeurs manquantes gardées, LightGBM sait les traiter
+VARIABLES_BATIMENT = ["annee_construction", "dpe_classe"]
+VARIABLES = VARIABLES_BASE + VARIABLES_BATIMENT
 ANNEES_TRAIN = [2021, 2022, 2023]
 ANNEE_VALIDATION = 2024
 ANNEE_TEST = 2025  # gardée de côté jusqu'à la semaine 5

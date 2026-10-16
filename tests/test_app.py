@@ -9,6 +9,7 @@ from streamlit.testing.v1 import AppTest
 RACINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE / "src"))
 import predict  # noqa: E402
+from batiments import lettre_dpe  # noqa: E402
 from test_predict import FausseReponse  # noqa: E402
 
 APP = str(RACINE / "app" / "streamlit_app.py")
@@ -106,7 +107,8 @@ def test_comparer_deux_biens(monkeypatch):
     onglet = app.tabs[2]
     html = "".join(m.value for m in onglet.markdown)
     assert html.count('class="resultat"') == 2
-    assert "Écart de prix" in html and "Le bien B est estimé" in html and "moins cher" in html
+    assert "1er Bien" in html and "2ème Bien" in html
+    assert "Écart de prix" in html and "Le 2ème bien est estimé" in html and "moins cher" in html
     graphiques = [json.loads(g.proto.spec) for g in onglet.get("vega_lite_chart")]
     assert len(graphiques) == 2
     # 5 facteurs par bien : le graphique des facteurs fait 38 px de haut par facteur
@@ -117,7 +119,7 @@ def test_comparer_sans_adresse_previent():
     app = lancer_app()
     next(b for b in app.button if b.label == "Comparer").click().run()
     assert not app.exception
-    assert "Bien A : saisissez une adresse" in app.tabs[2].warning[0].value
+    assert "1er Bien : saisissez une adresse" in app.tabs[2].warning[0].value
 
 
 def test_le_modele_erreurs_par_groupe_et_hors_marche():
@@ -125,7 +127,8 @@ def test_le_modele_erreurs_par_groupe_et_hors_marche():
     assert not app.exception
     onglet = app.tabs[3]
     texte = "".join(m.value for m in onglet.markdown)
-    for titre in ["Par code postal", "Par surface", "Appartements et maisons", "Où on en est", "Une enquête"]:
+    for titre in ["Par code postal", "Par surface", "Appartements et maisons", "Ce qu'elle change", "Une enquête",
+                  "Année et DPE"]:
         assert titre in texte
     # 1 graphique de comparaison, 1 d'importance, 3 d'erreurs
     assert len(onglet.get("vega_lite_chart")) == 5
@@ -141,4 +144,32 @@ def test_a_propos_parcours_et_entonnoir():
     brutes = f"{tableau['lignes'].iloc[0]:,}".replace(",", "\u202f")
     assert f"De {brutes} lignes" in html
     spec = str(json.loads(onglet.get("vega_lite_chart")[0].proto.spec))
-    assert "Étape à appliquer" in spec
+    assert "Données du modèle" in spec and "Étape à appliquer" not in spec  # la règle est appliquée
+
+
+def test_estimation_pre_remplit_annee_et_dpe_et_simule_le_dpe(monkeypatch):
+    adresse = "10 Rue de la Loge 34000 Montpellier"
+    reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
+    monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (43.6110, 3.8790, adresse))
+    # un bâtiment connu, avec année et DPE : celui de la première adresse de la table de l'app
+    estimateur = predict.Estimateur()
+    batiments = estimateur.batiments.set_index("batiment_groupe_id").dropna(subset=["annee_construction", "dpe_classe"])
+    cle = estimateur.adresses[estimateur.adresses.isin(batiments.index)].index[0]
+    attendu = batiments.loc[estimateur.adresses[cle]]
+    monkeypatch.setattr(predict, "geocoder_complet",
+                        lambda texte: {"latitude": 43.611, "longitude": 3.879, "label": adresse, "cle_ban": cle})
+
+    app = lancer_app()
+    app.text_input(key="texte").input("10 rue Pré-rempli").run()
+    annee = next(n for n in app.number_input if n.label == "Année de construction")
+    dpe = next(s for s in app.selectbox if s.label == "Classe DPE")
+    assert annee.value == int(attendu["annee_construction"])
+    assert dpe.value == lettre_dpe(attendu["dpe_classe"])
+
+    next(b for b in app.button if b.label == "Estimer le prix").click().run()
+    assert not app.exception
+    assert {"annee_construction", "dpe_classe"} <= set(app.session_state["resultat"]["facteurs"].index)
+    # simulateur : passer le bâtiment en classe A recalcule le prix sans erreur
+    app.select_slider(key="sim_dpe").set_value("A").run()
+    assert not app.exception and app.select_slider(key="sim_dpe").value == "A"

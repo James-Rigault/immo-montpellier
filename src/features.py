@@ -84,8 +84,19 @@ def ajouter_variables(df):
 
 
 def main():
+    from batiments import (  # import local : l'app importe ce module sans avoir besoin de la BDNB
+        ADRESSES_APP, CORRESPONDANCE, TABLE_APP, ajouter_batiments, table_app, taux_correspondance,
+    )
     df = pd.read_parquet(ENTREE)
     resultat = ajouter_variables(df)
+    resultat, tables, dpe = ajouter_batiments(resultat)
+    taux = taux_correspondance(resultat)
+    print("\nCorrespondance vente → bâtiment (part des ventes) :")
+    print(taux.to_string())
+    taux.to_csv(CORRESPONDANCE)
+    batiments, adresses = table_app(tables, dpe)
+    batiments.to_parquet(TABLE_APP, index=False)
+    adresses.to_parquet(ADRESSES_APP, index=False)
     resultat.to_parquet(SORTIE, index=False)
     nouvelles = [c for c in resultat.columns if c not in df.columns]
     print(f"{len(nouvelles)} nouvelles variables : {', '.join(nouvelles)}")

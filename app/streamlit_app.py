@@ -1,4 +1,5 @@
 """Application Streamlit : estimer le prix d'un logement à Montpellier."""
+import json
 import sys
 from html import escape
 from pathlib import Path
@@ -11,10 +12,11 @@ import streamlit as st
 from pydeck.types import String
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from erreurs import bilan_hors_marche, erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
+from batiments import CLASSES_DPE, code_dpe, lettre_dpe  # noqa: E402
+from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
 from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
 from train import ANNEE_TEST, ANNEE_VALIDATION, ANNEES_TRAIN, VARIABLES  # noqa: E402
-from predict import AdresseIntrouvable, Estimateur, niveau_confiance, suggestions  # noqa: E402
+from predict import AdresseIntrouvable, Estimateur, geocoder_complet, niveau_confiance, suggestions  # noqa: E402
 from affichage import (  # noqa: E402
     badge_confiance, bornes_classes, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
     graphique_courbe,
@@ -27,7 +29,11 @@ LIEN_GITHUB = ""
 LIEN_LINKEDIN = ""
 
 RESULTATS_2025 = Path(__file__).resolve().parents[1] / "reports" / "resultats_test_2025.csv"
-ENTONNOIR = Path(__file__).resolve().parents[1] / "reports" / "entonnoir_nettoyage.csv"  # écrit par src/rapport_nettoyage.py
+RAPPORTS = Path(__file__).resolve().parents[1] / "reports"
+ENTONNOIR = RAPPORTS / "entonnoir_nettoyage.csv"  # écrit par src/rapport_nettoyage.py
+HORS_MARCHE = RAPPORTS / "ventes_hors_marche.json"  # écrit par src/rapport_nettoyage.py
+COMPARAISON = RAPPORTS / "comparaison_variables.csv"  # écrit par src/comparer_variables.py
+CORRESPONDANCE = RAPPORTS / "correspondance_batiments.csv"  # écrit par src/features.py
 FEUILLE_DE_STYLE = Path(__file__).resolve().parent / "style.css"
 
 NOMS = {
@@ -47,7 +53,10 @@ NOMS = {
     "nb_ecole_500m": "Écoles à 500 m",
     "nb_commerce_500m": "Commerces à 500 m",
     "nb_restaurant_500m": "Restaurants et cafés à 500 m",
+    "annee_construction": "Année de construction",
+    "dpe_classe": "Classe DPE du bâtiment",
 }
+CHOIX_DPE = ["Inconnu", *CLASSES_DPE]
 
 st.set_page_config(page_title="Estimation immobilière — Montpellier", layout="wide")
 
@@ -66,6 +75,28 @@ EXEMPLES = {
     "Port Marianne": "15 rue de la Cavalade",
     "Beaux-Arts": "10 rue Proudhon",
 }
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def infos_batiment(adresse):
+    """Année de construction et classe DPE du bâtiment de l'adresse, pour pré-remplir le formulaire.
+
+    Renvoie None si l'adresse ne peut pas être localisée : les champs restent alors à remplir.
+    """
+    try:
+        lieu = geocoder_complet(adresse)
+    except (AdresseIntrouvable, requests.RequestException):
+        return None
+    return charger_estimateur().batiment(lieu["latitude"], lieu["longitude"], lieu["cle_ban"])
+
+
+def note_batiment(infos):
+    """Une phrase sous le formulaire : d'où viennent l'année et le DPE pré-remplis."""
+    if not infos or not infos["trouve"]:
+        return "Bâtiment non retrouvé : année et DPE à renseigner si vous les connaissez."
+    dpe = (f"classe DPE médiane de {infos['nb_dpe']} DPE du bâtiment (ADEME)" if infos["nb_dpe"]
+           else "aucun DPE connu dans le bâtiment")
+    return f"Pré-rempli d'après le bâtiment : année des Fichiers fonciers (BDNB), {dpe}. Modifiable."
 
 
 def remplir_adresse(exemple):
@@ -173,6 +204,9 @@ def section_bien(adresse):
             "01 — Le bien", "Décrire le logement",
             "L'adresse se saisit en haut de page. Les caves et parkings vendus avec le logement comptent dans le prix.",
         ), unsafe_allow_html=True)
+        infos = infos_batiment(adresse) if adresse else None
+        annee_connue = infos["annee_construction"] if infos else None
+        dpe_connu = lettre_dpe(infos["dpe_classe"]) if infos else None
         with droite, st.form("formulaire", border=False):
             # une rangée de colonnes par ligne : sur téléphone, les champs s'empilent dans le bon ordre
             col1, col2 = st.columns(2, gap="large")
@@ -181,8 +215,16 @@ def section_bien(adresse):
             col1, col2 = st.columns(2, gap="large")
             pieces = col1.number_input("Nombre de pièces", min_value=1, max_value=15, value=3)
             dependances = col2.number_input("Caves et parkings", min_value=0, max_value=5, value=0)
-            col1, _ = st.columns(2, gap="large")
+            col1, col2 = st.columns(2, gap="large")
             terrain = col1.number_input("Terrain (m², pour une maison)", min_value=0, max_value=5000, value=0)
+            # la clé dépend de l'adresse : une nouvelle adresse remet les valeurs du bâtiment
+            annee = col2.number_input("Année de construction", min_value=1600, max_value=pd.Timestamp.today().year,
+                                      value=annee_connue, placeholder="Inconnue", key=f"annee_{adresse}")
+            col1, _ = st.columns(2, gap="large")
+            dpe = col1.selectbox("Classe DPE", CHOIX_DPE, index=CHOIX_DPE.index(dpe_connu or "Inconnu"),
+                                 key=f"dpe_{adresse}")
+            if adresse:
+                st.markdown(f'<p class="note">{note_batiment(infos)}</p>', unsafe_allow_html=True)
             valider = st.form_submit_button("Estimer le prix", type="primary")
 
         if not valider:
@@ -192,7 +234,8 @@ def section_bien(adresse):
             return
         try:
             with st.spinner("Calcul en cours…"):
-                r = charger_estimateur().estimer(adresse, type_local, surface, pieces, dependances, terrain)
+                r = charger_estimateur().estimer(adresse, type_local, surface, pieces, dependances, terrain,
+                                                 annee, code_dpe(dpe))
         except AdresseIntrouvable:
             droite.error("Adresse introuvable dans la commune de Montpellier. Vérifiez l'orthographe.")
             return
@@ -204,10 +247,10 @@ def section_bien(adresse):
     st.session_state["resultat"] = r
     st.session_state["bien"] = {
         "type_local": type_local, "surface": surface, "pieces": pieces,
-        "dependances": dependances, "terrain": terrain,
+        "dependances": dependances, "terrain": terrain, "annee": annee, "dpe": dpe,
     }
     # nouvelle estimation : les curseurs du simulateur repartent des valeurs saisies
-    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep"]:
+    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep", "sim_dpe"]:
         st.session_state.pop(cle, None)
 
 
@@ -319,7 +362,9 @@ def section_simulateur(r, bien):
         with gauche:
             st.markdown(entete(
                 "04 — Simulation", "Et si…",
-                "Modifiez les caractéristiques : le prix est recalculé au même emplacement.",
+                "Modifiez les caractéristiques : le prix est recalculé au même emplacement. Le DPE est celui "
+                "du bâtiment (le modèle a appris la classe médiane des logements de l'immeuble) : passer de F "
+                "à C donne un ordre de grandeur, pas la valeur de travaux.",
             ), unsafe_allow_html=True)
             sim_type = st.radio(
                 "Type de bien", ["Appartement", "Maison"],
@@ -328,9 +373,11 @@ def section_simulateur(r, bien):
             sim_surface = st.slider("Surface (m²)", 9, 250, int(bien["surface"]), key="sim_surface")
             sim_pieces = st.slider("Nombre de pièces", 1, 10, int(bien["pieces"]), key="sim_pieces")
             sim_dep = st.slider("Caves et parkings", 0, 3, int(bien["dependances"]), key="sim_dep")
+            sim_dpe = st.select_slider("Classe DPE du bâtiment", CHOIX_DPE, value=bien["dpe"], key="sim_dpe")
 
         prix_sim = estimateur.prix(
-            r["latitude"], r["longitude"], sim_type, sim_surface, sim_pieces, sim_dep, bien["terrain"]
+            r["latitude"], r["longitude"], sim_type, sim_surface, sim_pieces, sim_dep, bien["terrain"],
+            bien["annee"], code_dpe(sim_dpe),
         )
         ecart = prix_sim - r["prix"]
         comparaison = (
@@ -340,7 +387,8 @@ def section_simulateur(r, bien):
         # courbe : comment évolue le prix avec la surface, à cet endroit
         surfaces = list(range(15, 201, 5))
         prix_courbe = estimateur.prix_selon_surface(
-            r["latitude"], r["longitude"], sim_type, sim_pieces, sim_dep, bien["terrain"], surfaces
+            r["latitude"], r["longitude"], sim_type, sim_pieces, sim_dep, bien["terrain"], surfaces,
+            bien["annee"], code_dpe(sim_dpe),
         )
         with droite:
             st.markdown(f"""
@@ -473,6 +521,7 @@ def onglet_explorer():
 # ---------- Comparer ----------
 
 BIENS = {"A": "4 boulevard du Jeu de Paume", "B": "20 avenue de Toulouse"}  # exemples affichés en gris
+TITRES_BIENS = {"A": "1er Bien", "B": "2ème Bien"}  # ce que voit l'utilisateur ; A et B restent les clés internes
 
 
 def signe(x, texte):
@@ -489,7 +538,7 @@ def formulaire_comparaison():
     biens = {}
     for nom, colonne in zip(BIENS, st.columns(2, gap="large")):
         with colonne:
-            st.markdown(f'<h3 class="titre-bien">Bien {nom}</h3>', unsafe_allow_html=True)
+            st.markdown(f'<h3 class="titre-bien">{TITRES_BIENS[nom]}</h3>', unsafe_allow_html=True)
             biens[nom] = {
                 "adresse": champ_adresse(f"cmp_texte_{nom}", BIENS[nom]),
                 "type_local": st.radio("Type de bien", ["Appartement", "Maison"], horizontal=True,
@@ -505,14 +554,16 @@ def estimer_biens(biens):
     resultats = {}
     for nom, bien in biens.items():
         if not bien["adresse"]:
-            st.warning(f"Bien {nom} : saisissez une adresse et choisissez-la dans les suggestions.")
+            st.warning(f"{TITRES_BIENS[nom]} : saisissez une adresse et choisissez-la dans les suggestions.")
             return None
+        infos = infos_batiment(bien["adresse"]) or {"annee_construction": None, "dpe_classe": None}
         try:
             resultats[nom] = charger_estimateur().estimer(
-                bien["adresse"], bien["type_local"], bien["surface"], bien["pieces"]
+                bien["adresse"], bien["type_local"], bien["surface"], bien["pieces"],
+                annee_construction=infos["annee_construction"], dpe_classe=infos["dpe_classe"],
             )
         except AdresseIntrouvable:
-            st.error(f"Bien {nom} : adresse introuvable dans la commune de Montpellier.")
+            st.error(f"{TITRES_BIENS[nom]} : adresse introuvable dans la commune de Montpellier.")
             return None
         except requests.RequestException:
             st.error("Le service de géocodage ne répond pas. Réessayez dans un instant.")
@@ -521,13 +572,13 @@ def estimer_biens(biens):
 
 
 def section_ecart(resultats):
-    """Le verdict : combien B coûte de plus (ou de moins) que A, et si l'écart dépasse l'incertitude."""
+    """Le verdict : combien le 2ème bien coûte de plus (ou de moins) que le 1er, et si l'écart dépasse l'incertitude."""
     e = ecart_estimations(resultats["A"], resultats["B"])
     if round(e["ecart"]) == 0:
         phrase = "Les deux biens sont estimés au même prix."
     else:
         sens = "plus cher" if e["ecart"] > 0 else "moins cher"
-        phrase = f"Le bien B est estimé {euros(abs(e['ecart']))} {sens} que le bien A."
+        phrase = f"Le 2ème bien est estimé {euros(abs(e['ecart']))} {sens} que le 1er."
     prudence = (
         "Leurs fourchettes se recouvrent : l'écart reste dans la marge d'incertitude du modèle."
         if e["chevauchement"] else
@@ -535,11 +586,11 @@ def section_ecart(resultats):
     )
     with st.container(key="section-comparer-ecart"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("03 — Écart", "B face à A", phrase), unsafe_allow_html=True)
+        gauche.markdown(entete("03 — Écart", "Le 2ème face au 1er", phrase), unsafe_allow_html=True)
         droite.markdown(f"""
 <div class="chiffres">
   <div class="chiffre"><b>{signe(e["ecart"], euros(abs(e["ecart"])))}</b><span>Écart de prix</span></div>
-  <div class="chiffre"><b>{signe(e["ecart_pct"], pourcent(abs(e["ecart_pct"])))}</b><span>En pourcentage du prix de A</span></div>
+  <div class="chiffre"><b>{signe(e["ecart_pct"], pourcent(abs(e["ecart_pct"])))}</b><span>En pourcentage du prix du 1er bien</span></div>
   <div class="chiffre"><b>{signe(e["ecart_m2"], euros(abs(e["ecart_m2"])))}</b><span>Écart au m²</span></div>
 </div>
 <p class="note">{prudence}</p>""", unsafe_allow_html=True)
@@ -550,7 +601,8 @@ def onglet_comparer():
     with st.container(key="section-comparer-biens"):
         st.markdown(entete(
             "01 — Les biens", "Comparer deux logements",
-            "Deux adresses, deux descriptions : chaque bien est estimé par le même modèle que l'onglet Estimer.",
+            "Deux adresses, deux descriptions : chaque bien est estimé par le même modèle que l'onglet Estimer. "
+            "L'année de construction et le DPE sont repris du bâtiment de chaque adresse.",
         ), unsafe_allow_html=True)
         biens = formulaire_comparaison()
         if biens:
@@ -572,7 +624,7 @@ def onglet_comparer():
         for nom, colonne in zip(resultats, st.columns(2, gap="large")):
             r = resultats[nom]
             colonne.markdown(
-                f'<div class="comparaison"><h3 class="titre-bien">Bien {nom}</h3>'
+                f'<div class="comparaison"><h3 class="titre-bien">{TITRES_BIENS[nom]}</h3>'
                 + carte_resultat(r["adresse"], r["prix"], r["prix_m2"], r["prix_bas"], r["prix_haut"], euros)
                 + "</div>",
                 unsafe_allow_html=True,
@@ -609,9 +661,14 @@ def erreurs_2025():
     }
 
 
-@st.cache_data(show_spinner=False)
-def bilan_2025():
-    return bilan_hors_marche(charger_estimateur().ventes, test_2025())
+@st.cache_data
+def rapports_batiment():
+    """Ventes hors marché retirées, comparaison sur la validation 2024 et correspondance avec les bâtiments."""
+    return (
+        json.loads(HORS_MARCHE.read_text()),
+        pd.read_csv(COMPARAISON, index_col=0),
+        pd.read_csv(CORRESPONDANCE, index_col=0),
+    )
 
 
 def section_erreurs():
@@ -630,8 +687,10 @@ def section_erreurs():
 
 
 def section_hors_marche():
-    """04 — l'histoire des ventes hors marché, racontée avec les chiffres recalculés sur les données."""
-    b = bilan_2025()
+    """04 — l'histoire des ventes hors marché et de la règle de nettoyage qui en a découlé."""
+    b, comparaison, _ = rapports_batiment()
+    avec = comparaison.loc["Ancien modèle (sans la règle)", "MAE (€)"]
+    sans = comparaison.loc["Anciennes variables, données nettoyées", "MAE (€)"]
     immeuble = (
         f" Jusqu'à {b['plus_grand_groupe']} ventes partagent la même adresse et le même prix au m² : sans doute "
         "des lots vendus en bloc." if b["plus_grand_groupe"] > 1 else ""
@@ -639,33 +698,69 @@ def section_hors_marche():
     with st.container(key="section-ombre-modele-hors-marche"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "04 — Une enquête", # espace insécable : « 700 » et « € » ne sont jamais séparés par un retour à la ligne
-            f"Les ventes à {euros(round(b['prix_m2_median'], -2)).replace(' ', chr(160))} le m²",
-            "En étudiant les pires erreurs, une famille de ventes revient sans cesse. Le modèle n'y est pour rien.",
+            # espace insécable : le nombre et « € » ne sont jamais séparés par un retour à la ligne
+            "04 — Une enquête", f"Les ventes à {euros(round(b['prix_m2_median_retirees'], -2)).replace(' ', chr(160))} le m²",
+            "En étudiant les pires erreurs, une famille de ventes revenait sans cesse. Le modèle n'y était pour rien.",
         ), unsafe_allow_html=True)
         droite.markdown(f"""
 <div class="chiffres">
-  <div class="chiffre"><b>{b["nb_parmi_pires"]} sur {b["nb_pires"]}</b><span>Des pires erreurs de 2025 sont des ventes hors marché</span></div>
-  <div class="chiffre"><b>{b["erreur_mediane_hors_marche"]:.0f} %</b><span>Erreur médiane sur ces {b["nb_test"]} ventes de 2025</span></div>
-  <div class="chiffre"><b>{pourcent(b["erreur_moyenne_sans"])}</b><span>Erreur moyenne sur 2025 sans elles, contre {pourcent(b["erreur_moyenne"])} avec</span></div>
+  <div class="chiffre"><b>{nombre(b["ventes_retirees"])}</b><span>Ventes retirées par la règle, sur {nombre(b["ventes_avant"])}</span></div>
+  <div class="chiffre"><b>{euros(b["prix_m2_median_retirees"])}</b><span>Prix au m² médian de ces ventes</span></div>
+  <div class="chiffre"><b>{euros(b["prix_m2_median_local"])}</b><span>Prix au m² médian local des mêmes biens</span></div>
 </div>""", unsafe_allow_html=True)
         droite.markdown(liste_filets([
-            ("Le constat", f"Des logements vendus autour de {euros(b['prix_m2_median'])} le m² (médiane), là où le "
-                           f"même type de bien se vend environ {euros(b['prix_m2_local'])} le m² dans le même code "
-                           f"postal la même année. Le modèle, lui, prédit un prix normal.{immeuble}"),
+            ("Le constat", "Les pires erreurs concernaient des logements vendus à une fraction du prix du quartier, "
+                           f"alors que le modèle prédisait un prix normal.{immeuble}"),
             ("L'explication", "Ce sont des ventes hors marché : viagers (seul le bouquet est déclaré), ventes "
                               "partielles (nue-propriété, quote-part), ventes entre proches, ventes en bloc. Le prix "
                               "déclaré ne dit pas ce que vaut le logement."),
-            ("La règle", f"Retirer une vente si son prix au m² est inférieur à {b['seuil'] * 100:.0f} % de la "
+            ("La règle", f"Retirer une vente si son prix au m² est inférieur à {b['seuil'] * 100:.0f}\u202f% de la "
                          "médiane de son code postal, de son type de bien et de son année. Une règle métier fixée à "
                          "l'avance et appliquée à toutes les années, et non la suppression des pires prédictions, "
                          "qui fausserait l'évaluation."),
-            ("Où on en est", f"La règle est écrite dans le nettoyage, mais le modèle présenté ici a été entraîné "
-                             f"avant qu'elle soit appliquée : {b['nb']} ventes hors marché sont encore dans ses "
-                             f"données, dont {b['nb_test']} en 2025. Les scores ci-dessus les incluent. Elles "
-                             "pèsent peu sur l'erreur médiane, davantage sur l'erreur moyenne. Prochaine étape : "
-                             "régénérer les données et réentraîner."),
+            ("Ce qu'elle change", f"La règle est appliquée au modèle actuel. Sur les ventes de 2024 nettoyées, un "
+                                  f"modèle appris sans ces ventes se trompe en moyenne de {euros(sans)}, contre "
+                                  f"{euros(avec)} pour un modèle appris avec : les retirer "
+                                  f"{'n’améliore pas' if sans >= avec else 'améliore à peine'} l'apprentissage. "
+                                  "La règle compte surtout pour l'évaluation : les scores ne sont plus calculés sur "
+                                  "des prix qui ne disent rien de la valeur d'un logement."),
         ]), unsafe_allow_html=True)
+
+
+def section_batiment():
+    """05 — ce qu'apportent l'année de construction et le DPE, mesuré sur la validation 2024."""
+    _, comparaison, correspondance = rapports_batiment()
+    toutes = correspondance.loc["Toutes"]
+    premiere = str(ANNEES_TRAIN[0])  # l'index mêle années et « Toutes » : il est lu en texte
+    base = comparaison.loc["Anciennes variables, données nettoyées"]
+    nouveau = comparaison.loc["+ année de construction et DPE"]
+    lignes = ""
+    for nom, ligne in [("Sans année ni DPE", base), ("Avec année et DPE (modèle retenu)", nouveau)]:
+        valeurs = [euros(ligne["MAE (€)"]), pourcent(ligne["MAPE (%)"]), pourcent(ligne["Erreur médiane (%)"]),
+                   pourcent(ligne["Part à ±10 % (%)"])]
+        lignes += f"<tr><th>{nom}</th>" + "".join(f"<td>{v}</td>" for v in valeurs) + "</tr>"
+    entetes = "".join(f"<th>{c}</th>" for c in ["Erreur moyenne", "Erreur moyenne (%)", "Erreur médiane",
+                                                 "Prix à ±10\u202f%"])
+    with st.container(key="section-modele-batiment"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "05 — Le bâtiment", "Année et DPE",
+            "Chaque vente est reliée à son bâtiment (BDNB) : son année de construction, et la classe DPE médiane "
+            "des logements de l'immeuble, calculée avec les seuls DPE établis avant la vente (ADEME). Mêmes "
+            "réglages, même validation 2024, moyenne de 5 entraînements.",
+        ), unsafe_allow_html=True)
+        droite.markdown(f"""
+<div class="chiffres">
+  <div class="chiffre"><b>{nombre(toutes["ventes"] * (1 - toutes["sans_batiment"]))}</b><span>Ventes reliées à leur bâtiment, sur {nombre(toutes["ventes"])}</span></div>
+  <div class="chiffre"><b>{pourcent(100 * toutes["avec_annee"])}</b><span>Avec une année de construction</span></div>
+  <div class="chiffre"><b>{pourcent(100 * toutes["avec_dpe"])}</b><span>Avec un DPE connu avant la vente</span></div>
+</div>
+<div class="tableau-defilant"><table class="tableau"><thead><tr><th></th>{entetes}</tr></thead>
+<tbody>{lignes}</tbody></table></div>
+<p class="note">Un gain modeste : l'erreur moyenne en euros baisse, l'erreur médiane et la part à ±10\u202f% bougent
+à peine, l'erreur moyenne en pourcentage augmente un peu. Les DPE ne commencent qu'en juillet 2021 : les ventes de
+{premiere} en ont rarement un ({pourcent(100 * correspondance.loc[premiere, "avec_dpe"])}).</p>""",
+                        unsafe_allow_html=True)
 
 
 def onglet_modele():
@@ -715,12 +810,14 @@ def onglet_modele():
 
     section_erreurs()
     section_hors_marche()
+    section_batiment()
 
-    with st.container(key="section-modele-limites"):
+    with st.container(key="section-ombre-modele-limites"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("05 — Limites", "Ce qu'il ignore"), unsafe_allow_html=True)
+        gauche.markdown(entete("06 — Limites", "Ce qu'il ignore"), unsafe_allow_html=True)
         droite.markdown(liste_filets([
-            ("L'état du bien", "Ni l'étage, ni la vue, ni les travaux, ni le diagnostic énergétique."),
+            ("L'état du bien", "Ni l'étage, ni la vue, ni les travaux. Le DPE utilisé est la classe médiane "
+                               "du bâtiment, pas celle du logement."),
             ("Le territoire", "La seule commune de Montpellier."),
             ("Les annexes", "Les prix incluent les caves et parkings vendus avec le logement."),
             ("Le temps", "Appris sur 2021–2024 : un changement récent du marché peut le décaler."),
