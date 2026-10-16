@@ -46,8 +46,6 @@ def code_dpe(lettre):
     return CLASSES_DPE.index(lettre) + 1 if lettre in CLASSES_DPE else None
 
 
-# ---------- Téléchargement ----------
-
 def telecharger_bdnb():
     """Télécharge l'export BDNB du département une seule fois (environ 640 Mo)."""
     if BDNB_ZIP.exists():
@@ -119,8 +117,6 @@ def extraire_bdnb():
         table.to_parquet(fichiers[nom], index=False)
     return tables
 
-
-# ---------- Correspondance vente → bâtiment ----------
 
 SUFFIXES = {"B": "bis", "T": "ter", "Q": "quater", "C": "quinquies"}  # suffixes DVF → suffixes BAN
 
@@ -194,8 +190,6 @@ def relier_ventes(ventes, batiments, parcelles, adresses):
     return resultat
 
 
-# ---------- DPE et année de construction ----------
-
 def dpe_par_batiment(dpe_ademe, rel_dpe, adresses):
     """Chaque DPE de l'ADEME avec son bâtiment : lien officiel de la BDNB, sinon par l'adresse BAN."""
     dpe = dpe_ademe.assign(
@@ -240,8 +234,6 @@ def annee_par_batiment(batiments, dpe):
     secours = declaree.groupby("batiment_groupe_id")["annee"].median()
     return annee.fillna(secours.reindex(annee.index))
 
-
-# ---------- Assemblage ----------
 
 TABLE_APP = RACINE / "data" / "processed" / "batiments.parquet"  # versionnée : l'app la lit en ligne
 ADRESSES_APP = RACINE / "data" / "processed" / "adresses_batiments.parquet"

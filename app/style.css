@@ -1,12 +1,8 @@
-/* =====================================================================
-   Feuille de style de l'app — direction « Édition »
-   Papier, encre, gris chauds ; un seul accent (vert bouteille).
-   Les sélecteurs visent les attributs data-testid de Streamlit et les
-   classes st-key-… des conteneurs nommés, plus stables que les classes
-   générées (st-emotion-cache-…).
-   ===================================================================== */
+/* Mise en forme de l'app : fond papier, texte encre, gris chauds, un seul accent vert.
+   Les sélecteurs visent les data-testid de Streamlit et les classes st-key-… des conteneurs
+   nommés, plus stables que les classes générées (st-emotion-cache-…). */
 
-/* ---------- 1. Variables ---------- */
+/* Variables */
 :root {
   --papier: #F4F2EE;         /* fond principal */
   --papier-ombre: #E9E6E0;   /* fond des sections alternées */
@@ -23,7 +19,7 @@
   --marge: max(var(--gouttiere), calc((100% - var(--largeur)) / 2));
 }
 
-/* ---------- 2. Plein écran : on retire le cadre de Streamlit ---------- */
+/* Plein écran : on retire le cadre de Streamlit */
 [data-testid="stHeader"],
 [data-testid="stToolbar"],
 [data-testid="stDecoration"],
@@ -45,7 +41,7 @@ footer { display: none !important; }
    (largeur fixe) restent pour tout ce qui doit s'aligner en colonnes */
 .resultat p.resultat-prix, .chiffre b, .simulation b { font-variant-numeric: lining-nums proportional-nums; }
 
-/* ---------- 3. Sections pleine largeur ---------- */
+/* Sections pleine largeur */
 /* chaque section est un st.container(key="section-…") */
 [class*="st-key-section-"] {
   padding: clamp(4rem, 9vw, 7.5rem) var(--marge);
@@ -54,8 +50,8 @@ footer { display: none !important; }
 /* les sections dont la clé commence par « section-ombre- » prennent le fond alterné */
 [class*="st-key-section-ombre-"] { background: var(--papier-ombre); }
 
-/* ---------- 4. Typographie ---------- */
-.etiquette, [data-testid="stWidgetLabel"] p {
+/* Typographie */
+[data-testid="stWidgetLabel"] p {
   font-family: var(--sans);
   font-size: 0.72rem !important;
   font-weight: 500;
@@ -63,6 +59,7 @@ footer { display: none !important; }
   text-transform: uppercase;
   color: var(--gris);
 }
+.etiquette { font-family: var(--sans); font-size: 0.85rem !important; color: var(--gris); }
 /* titres de section : même remarque que pour le h1 du hero, Streamlit impose ses tailles */
 h2.titre-section {
   font-family: var(--serif) !important;
@@ -76,19 +73,15 @@ h2.titre-section {
 p.texte-court { color: #4A4743; max-width: 26rem; line-height: 1.65; margin-top: 1.4rem !important; }
 p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-height: 1.55; }
 
-/* ---------- 5. Hero ---------- */
+/* Hero */
 .st-key-hero {
   /* tout l'écran, moins la barre d'onglets placée au-dessus */
   min-height: calc(100vh - 3.75rem);
   min-height: calc(100svh - 3.75rem);  /* hauteur réelle de l'écran sur téléphone */
-  padding: 1.75rem var(--marge) 2.5rem;
+  padding: 3.5rem var(--marge) 2.5rem;
   justify-content: space-between;
   gap: 3rem;
   border-bottom: 1px solid var(--filet);
-}
-.bandeau {
-  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  padding-bottom: 1rem; border-bottom: 1px solid var(--filet);
 }
 /* sélecteur précis + !important : Streamlit impose sa propre taille aux h1 */
 .st-key-hero h1.hero-titre {
@@ -125,7 +118,7 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 }
 .st-key-exemples [data-testid="stBaseButton-secondary"]:hover { border-bottom-color: var(--encre); color: var(--encre); }
 
-/* chiffres clés, à la manière d'un rapport annuel */
+/* chiffres clés */
 .chiffres { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--filet); }
 .chiffre { padding: 1.4rem 1.5rem 0 0; }
 .chiffre + .chiffre { border-left: 1px solid var(--filet); padding-left: 1.5rem; }
@@ -135,21 +128,19 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 }
 .chiffre span { display: block; margin-top: 0.6rem; font-size: 0.85rem; color: var(--gris); max-width: 16rem; }
 
-/* ---------- 6. Onglets : une navigation fine ---------- */
+/* Onglets : une navigation fine */
 [data-testid="stTabs"] [role="tablist"] {
   padding: 0 var(--marge);
   gap: 2.5rem;
   border-bottom: 1px solid var(--filet);
 }
 [data-testid="stTab"] { padding: 1.4rem 0 1.2rem; }
-[data-testid="stTab"] p {
-  font-size: 0.75rem; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gris);
-}
+[data-testid="stTab"] p { font-size: 0.92rem; color: var(--gris); }
 [data-testid="stTab"][aria-selected="true"] p { color: var(--encre); }
 [data-testid="stTabPanel"] { padding: 0; }
 [data-testid="stTabPanel"] > [data-testid="stVerticalBlock"] { gap: 0; }
 
-/* ---------- 7. Formulaires : des lignes, pas des boîtes ---------- */
+/* Formulaires : des lignes, pas des boîtes */
 [data-testid="stForm"] { border: none; padding: 0; }
 [data-testid="stNumberInputContainer"] {
   background: transparent !important;
@@ -170,7 +161,7 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
   margin-top: 1rem;
 }
 [data-testid="stBaseButton-primaryFormSubmit"] p, [data-testid="stBaseButton-primary"] p {
-  font-size: 0.75rem !important; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
+  font-size: 0.92rem !important; font-weight: 500;
 }
 [data-testid="stBaseButton-primaryFormSubmit"]:hover, [data-testid="stBaseButton-primary"]:hover { background: var(--encre) !important; border-color: var(--encre) !important; }
 
@@ -179,7 +170,7 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
   background: transparent !important; border-left: 1px solid var(--encre); border-radius: 0; color: var(--encre);
 }
 
-/* ---------- 8. Résultat ---------- */
+/* Résultat */
 /* ici aussi, Streamlit impose sa taille aux paragraphes : d'où les sélecteurs « p.… » et les !important */
 .resultat p.resultat-adresse { font-size: 1rem !important; margin: 0.8rem 0 0 !important; }
 .resultat p.resultat-prix {
@@ -203,7 +194,7 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 .fourchette-bornes div:last-child { text-align: right; }
 .fourchette-bornes b { display: block; font-weight: 400; font-size: 1.05rem; margin-top: 0.35rem; }
 
-/* confiance : trois traits, comme une jauge d'instrument */
+/* confiance : trois traits, un à trois remplis */
 .confiance { border-top: 1px solid var(--filet); padding-top: 1.2rem; margin-bottom: 1rem; }
 .confiance p.confiance-niveau {
   display: flex; align-items: center; gap: 1rem; margin: 0.9rem 0 0 !important;
@@ -215,7 +206,7 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 .confiance ul.raisons { margin: 1.1rem 0 0 !important; padding: 0 !important; list-style: none; }
 .confiance ul.raisons li { margin: 0 !important; color: #4A4743; font-size: 0.92rem; line-height: 1.5; padding: 0.45rem 0; border-bottom: 1px solid var(--filet); }
 
-/* ---------- 9. Simulateur, tableau, carte ---------- */
+/* Simulateur, tableau, carte */
 .simulation { display: grid; grid-template-columns: 1.4fr 1fr; border-top: 1px solid var(--filet); margin-bottom: 1.5rem; }
 .simulation > div { padding-top: 1.2rem; }
 .simulation > div + div { border-left: 1px solid var(--filet); padding-left: 1.5rem; }
@@ -228,16 +219,13 @@ p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-heig
 [data-testid="stDataFrame"] { border-top: 1px solid var(--encre); }
 [data-testid="stDeckGlJsonChart"] { border-top: 1px solid var(--encre); margin-top: 1rem; }
 
-/* ---------- 10. Listes, tableau, liens, pied de page ---------- */
-/* liste numérotée éditoriale : un numéro discret, un titre, un texte, entre deux filets */
-ol.liste-filets { list-style: none; margin: 0 !important; padding: 0 !important; border-top: 1px solid var(--encre); }
-ol.liste-filets li {
-  display: grid; grid-template-columns: 3.5rem 1fr; gap: 1rem;
-  margin: 0 !important; padding: 1.3rem 0 !important; border-bottom: 1px solid var(--filet);
-}
-.liste-numero { font-size: 0.75rem; letter-spacing: 0.16em; color: var(--gris); padding-top: 0.45rem; }
-ol.liste-filets b { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.55rem; line-height: 1.2; }
-ol.liste-filets p { margin: 0.35rem 0 0 !important; color: #4A4743; line-height: 1.6; }
+/* Listes, tableau, liens, pied de page */
+/* liste entre deux filets */
+ul.liste-filets { list-style: none; margin: 0 !important; padding: 0 !important; border-top: 1px solid var(--encre); }
+ul.liste-filets li { margin: 0 !important; padding: 1.1rem 0 !important; border-bottom: 1px solid var(--filet); line-height: 1.6; }
+ul.liste-filets .titre-liste { display: block; font-family: var(--serif); font-size: 1.45rem; line-height: 1.2; }
+ul.liste-filets p { margin: 0.35rem 0 0 !important; color: #4A4743; }
+p.texte-section { color: #4A4743; line-height: 1.65; max-width: 46rem; margin: 0 0 1rem !important; }
 
 /* liens : soulignés d'un filet, jamais en bleu */
 .stApp a { color: var(--encre) !important; text-decoration: none; border-bottom: 1px solid var(--filet); }
@@ -250,7 +238,7 @@ table.tableau th, table.tableau td {
   border: none !important; border-bottom: 1px solid var(--filet) !important; padding: 0.8rem 0.6rem; background: none;
 }
 table.tableau thead th {
-  font-size: 0.68rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gris);
+  font-size: 0.82rem; font-weight: 400; color: var(--gris);
   text-align: right; vertical-align: bottom; border-bottom: 1px solid var(--encre) !important;
 }
 table.tableau td { text-align: right; white-space: nowrap; }
@@ -271,13 +259,13 @@ table.tableau tbody th { text-align: left; font-weight: 400; white-space: nowrap
 .st-key-pied a:hover { border-bottom-color: var(--papier); }
 .st-key-pied p.pied-mention { color: #8C877F; font-size: 0.8rem !important; margin-top: 1.5rem !important; }
 
-/* ---------- 11. Grand écran : toute l'échelle typographique grandit un peu ---------- */
+/* Grand écran : toute l'échelle typographique grandit un peu */
 @media (min-width: 1920px) {
   html:root { font-size: 18px !important; }
   :root { --largeur: 1560px; }
 }
 
-/* ---------- 12. Téléphone ---------- */
+/* Téléphone */
 @media (max-width: 640px) {
   .chiffres { grid-template-columns: 1fr; }
   .chiffre + .chiffre { border-left: none; border-top: 1px solid var(--filet); padding-left: 0; }
@@ -285,17 +273,16 @@ table.tableau tbody th { text-align: left; font-weight: 400; white-space: nowrap
   [data-testid="stTabs"] [role="tablist"] { gap: 1.5rem; }
   .simulation { grid-template-columns: 1fr; }
   .pied-grille { grid-template-columns: 1fr; gap: 1.5rem; }
-  ol.liste-filets li { grid-template-columns: 2.5rem 1fr; }
   .simulation > div + div { border-left: none; padding-left: 0; }
 }
 
-/* ---------- 13. Explorer le marché ---------- */
+/* Explorer le marché */
 /* légende de la carte : des pastilles carrées, du clair au foncé */
 ul.legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; list-style: none; margin: 1rem 0 0 !important; padding: 0 !important; }
 ul.legende li { display: flex; align-items: center; gap: 0.5rem; margin: 0 !important; font-size: 0.85rem; color: #4A4743; }
 ul.legende i { width: 0.9rem; height: 0.9rem; display: inline-block; }
 
-/* ---------- 14. Comparer ---------- */
+/* Comparer */
 h3.titre-bien {
   font-family: var(--serif) !important; font-weight: 400 !important; font-size: 1.9rem !important;
   padding: 0 0 0.6rem !important; margin: 0 0 1rem !important; border-bottom: 1px solid var(--encre);
@@ -304,7 +291,7 @@ h3.titre-bien {
 .comparaison .resultat p.resultat-prix { font-size: clamp(3rem, 6vw, 5.5rem) !important; }
 .comparaison .fourchette { margin-top: 2rem; }
 
-/* ---------- 15. À propos : le parcours des données ---------- */
+/* À propos : le parcours des données */
 /* une rangée de cases reliées par des flèches ; sur téléphone, elles s'empilent */
 ol.parcours {
   list-style: none; margin: 0 !important; padding: 0 !important;
@@ -312,9 +299,9 @@ ol.parcours {
 }
 ol.parcours li { position: relative; margin: 0 !important; padding: 1.2rem 0 0 !important; }
 ol.parcours li + li::before {
-  content: "→"; position: absolute; left: -1.6rem; top: 2.65rem; color: var(--gris); font-size: 1.1rem;
+  content: "→"; position: absolute; left: -1.6rem; top: 1.35rem; color: var(--gris); font-size: 1.1rem;
 }
-ol.parcours b { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.45rem; line-height: 1.2; margin-top: 0.5rem; }
+ol.parcours b { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.45rem; line-height: 1.2; }
 ol.parcours p { margin: 0.4rem 0 0.8rem !important; color: #4A4743; font-size: 0.9rem; line-height: 1.5; }
 ol.parcours code {
   display: block; background: none; padding: 0; color: var(--encre); font-size: 0.78rem;
@@ -326,7 +313,7 @@ ol.parcours code {
   ol.parcours li + li::before { content: "↓"; left: auto; right: 0; top: 1.3rem; }
 }
 
-/* ---------- 16. Bonne affaire ? ---------- */
+/* Bonne affaire ? */
 p.verdict {
   font-family: var(--serif); font-weight: 300; font-size: clamp(2.2rem, 4.5vw, 3.6rem) !important;
   line-height: 1.05 !important; margin: 0.8rem 0 1.2rem !important;
@@ -352,6 +339,4 @@ ul.jauge-legende i { display: inline-block; }
   background: none; border: none; border-radius: 0; padding: 0; min-height: 0; margin-top: 0.6rem;
   border-bottom: 1px solid var(--encre);
 }
-.st-key-rapport_pdf [data-testid="stBaseButton-secondary"] p {
-  font-size: 0.75rem !important; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
-}
+.st-key-rapport_pdf [data-testid="stBaseButton-secondary"] p { font-size: 0.92rem !important; }

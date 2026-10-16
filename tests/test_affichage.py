@@ -113,7 +113,7 @@ def test_graphique_erreurs_texte_et_repere():
     from affichage import graphique_erreurs
     erreurs = pd.DataFrame({"groupe": ["34000", "34070"], "erreur_mediane": [11.2, 10.8], "nb_ventes": [1480, 1465]})
     spec = json.dumps(graphique_erreurs(erreurs, 10.8).to_dict(), ensure_ascii=False)
-    assert "11,2 %  ·  1 480 ventes" in spec
+    assert "11,2 % (1 480 ventes)" in spec
     assert '"x": 10.8' in spec  # le filet de l'erreur médiane globale
 
 

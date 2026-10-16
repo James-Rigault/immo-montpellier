@@ -33,8 +33,6 @@ def style_graphique(graphique):
     )
 
 
-# ---------- Résultat ----------
-
 def position_estimation(prix, prix_bas, prix_haut):
     """Place de l'estimation sur le filet de fourchette, en % de sa longueur (0 = prix bas)."""
     if prix_haut <= prix_bas:
@@ -75,8 +73,6 @@ def badge_confiance(niveau, raisons):
 </div>
 """
 
-
-# ---------- « Pourquoi ce prix ? » ----------
 
 def regrouper_facteurs(facteurs):
     """Additionne latitude et longitude en un seul facteur : les valeurs SHAP s'additionnent."""
@@ -133,8 +129,6 @@ def graphique_facteurs(facteurs):
     return style_graphique((barres + hausses + baisses + zero).properties(height=38 * len(donnees)))
 
 
-# ---------- Simulateur ----------
-
 def graphique_courbe(surfaces, prix, surface_actuelle, prix_actuel):
     """Prix estimé selon la surface : un trait d'accent, et un point sur la surface simulée."""
     donnees = pd.DataFrame({"surface": surfaces, "prix": prix})
@@ -150,8 +144,6 @@ def graphique_courbe(surfaces, prix, surface_actuelle, prix_actuel):
     point = alt.Chart(actuel).mark_point(filled=True, color=ENCRE, size=55).encode(x="surface:Q", y="prix:Q")
     return style_graphique((ligne + repere + point).properties(height=300))
 
-
-# ---------- Le modèle ----------
 
 def importance_variables(modele):
     """Importance « gain » de chaque variable, en % du total, latitude et longitude regroupées."""
@@ -206,8 +198,6 @@ def graphique_comparaison(resultats):
     valeurs = base.mark_text(align="left", dx=6, fontSize=12, color=ENCRE).encode(text="Valeur:N")
     return style_graphique((barres + valeurs).properties(height=alt.Step(24)))
 
-
-# ---------- Explorer le marché ----------
 
 # du papier au vert bouteille : une seule teinte, de plus en plus foncée avec le prix
 RAMPE = ["#DCE3D9", "#B4C4B2", "#82A084", "#4F7259", "#1F3B2D"]
@@ -286,8 +276,6 @@ def graphique_pieces(stats):
     return style_graphique((deciles + boite + mediane).properties(height=320))
 
 
-# ---------- Comparer ----------
-
 def ecart_estimations(a, b):
     """Écart du bien B par rapport au bien A : en euros, en %, au m², et si leurs fourchettes se recouvrent."""
     return {
@@ -299,13 +287,11 @@ def ecart_estimations(a, b):
     }
 
 
-# ---------- Où le modèle se trompe ----------
-
 def graphique_erreurs(erreurs, reference):
     """Erreur médiane par groupe, en %, avec le nombre de ventes ; filet pointillé = erreur médiane globale."""
     donnees = erreurs.copy()
     donnees["Texte"] = [
-        f"{e:.1f} %".replace(".", ",") + f"  ·  {n:,} ventes".replace(",", " ")
+        f"{e:.1f} %".replace(".", ",") + f" ({n:,} ventes)".replace(",", " ")
         for e, n in zip(donnees["erreur_mediane"], donnees["nb_ventes"])
     ]
     maximum = max(donnees["erreur_mediane"].max(), reference) * 1.6  # place pour le texte à droite
@@ -321,8 +307,6 @@ def graphique_erreurs(erreurs, reference):
     # Streamlit compte l'axe horizontal dans la hauteur : on lui réserve 50 px en plus des barres
     return style_graphique((barres + valeurs + repere).properties(height=34 * len(donnees) + 50))
 
-
-# ---------- À propos ----------
 
 STATUTS = ["Étape appliquée", "Données du modèle", "Étape à appliquer"]
 
@@ -375,14 +359,12 @@ def schema_parcours(etapes):
     `etapes` : liste de dictionnaires {"titre", "texte", "script", "sortie"}.
     """
     cases = "".join(
-        f'<li><span class="liste-numero">{i:02d}</span><b>{escape(e["titre"])}</b><p>{escape(e["texte"])}</p>'
+        f'<li><b>{escape(e["titre"])}</b><p>{escape(e["texte"])}</p>'
         f'<code>{escape(e["script"])}</code><span class="parcours-sortie">→ {escape(e["sortie"])}</span></li>'
-        for i, e in enumerate(etapes, start=1)
+        for e in etapes
     )
     return f'<ol class="parcours">{cases}</ol>'
 
-
-# ---------- Bonne affaire ? ----------
 
 def positions_jauge(prix, prix_bas, prix_haut, prix_demande, marge=0.08):
     """Place (en % de la largeur) de la fourchette, de l'estimation et du prix demandé sur une même échelle."""
@@ -415,8 +397,6 @@ def jauge_affaire(prix, prix_bas, prix_haut, prix_demande, euros):
 </div>
 """
 
-
-# ---------- Ventes comparables ----------
 
 def adresses_comparables(comparables):
     """« 12 Rue De La Loge » pour chaque vente comparable (sans numéro s'il est inconnu)."""

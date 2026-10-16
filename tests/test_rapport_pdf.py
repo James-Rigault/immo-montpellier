@@ -33,9 +33,10 @@ def estimation():
 
 
 def texte_pdf(contenu):
-    """Tout le texte du PDF, espaces insécables remplacées par des espaces simples."""
+    """Tout le texte du PDF sur une ligne : retours à la ligne et espaces insécables deviennent des espaces."""
     lecteur = PdfReader(io.BytesIO(contenu))
-    return "\n".join(page.extract_text() for page in lecteur.pages).replace(" ", " "), len(lecteur.pages)
+    texte = " ".join(page.extract_text() for page in lecteur.pages).replace("\u00a0", " ")
+    return " ".join(texte.split()), len(lecteur.pages)
 
 
 def test_rapport_complet_avec_les_bonnes_valeurs():
@@ -50,13 +51,13 @@ def test_rapport_complet_avec_les_bonnes_valeurs():
     texte, pages = texte_pdf(contenu)
     assert pages >= 1
     for attendu in [
-        "16 OCTOBRE 2026", "7 Rue du Bayle 34000 Montpellier",          # date et adresse
+        "16 octobre 2026", "7 Rue du Bayle 34000 Montpellier",          # date et adresse
         "Appartement", "60 m", "1930", "D (données du bâtiment",          # caractéristiques, dont année et DPE
         "222 869 €", "3 714 €", "169 691 €", "279 131 €", "Moyenne",     # prix, prix au m², fourchette, confiance
         "Emplacement dans la ville", "Classe DPE du bâtiment", "+28,6 k€", "−5,3 k€",  # facteurs SHAP
         "5 Rue Du Bayle", "148 000 €", "Rue De L'École",                 # ventes comparables
-        "Au-dessus du marché", "300 000 €", "8 sur 10",                  # « Bonne affaire ? »
-        "MÉTHODE ET LIMITES", "pas une expertise", "10,5 %",             # méthode et limites
+        "Au-dessus du marché", "300 000 €", "plus cher que 8 des 10",    # « Bonne affaire ? »
+        "Méthode et limites", "ne remplace pas l'avis", "10,5 %",        # méthode et limites
     ]:
         assert attendu in texte, attendu
 
@@ -65,6 +66,6 @@ def test_rapport_sans_prix_demande_ni_annee():
     r, bien, facteurs = estimation()
     bien = {**bien, "annee": None, "dpe": None}
     texte, _ = texte_pdf(rapport_pdf(r, bien, "faible", ["peu de ventes comparables"], facteurs, CHIFFRES))
-    assert "BONNE AFFAIRE" not in texte and "Inconnue (aucun DPE trouvé pour le bâtiment)" in texte
+    assert "Bonne affaire" not in texte and "Inconnue (aucun DPE trouvé pour le bâtiment)" in texte
     assert "Faible" in texte
-    assert "03 — LECTURE" in texte  # sans « Bonne affaire ? », les sections sont renumérotées
+    assert "Pourquoi ce prix" in texte and "—" not in texte

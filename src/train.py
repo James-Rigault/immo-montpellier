@@ -67,7 +67,7 @@ def baseline(train, autre):
 
 
 def creer_modeles():
-    """Les modèles à comparer, du plus simple au plus puissant."""
+    """Les modèles à comparer, du plus simple au plus complexe."""
     return {
         "Régression linéaire (Ridge)": make_pipeline(StandardScaler(), Ridge(alpha=1.0)),
         "Random Forest": RandomForestRegressor(

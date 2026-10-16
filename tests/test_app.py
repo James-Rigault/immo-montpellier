@@ -108,7 +108,7 @@ def test_comparer_deux_biens(monkeypatch):
     html = "".join(m.value for m in onglet.markdown)
     assert html.count('class="resultat"') == 2
     assert "1er Bien" in html and "2ème Bien" in html
-    assert "Écart de prix" in html and "Le 2ème bien est estimé" in html and "moins cher" in html
+    assert "Écart entre les deux" in html and "Le 2ème bien est estimé" in html and "moins cher" in html
     graphiques = [json.loads(g.proto.spec) for g in onglet.get("vega_lite_chart")]
     assert len(graphiques) == 2
     # 5 facteurs par bien : le graphique des facteurs fait 38 px de haut par facteur
@@ -127,8 +127,8 @@ def test_le_modele_erreurs_par_groupe_et_hors_marche():
     assert not app.exception
     onglet = app.tabs[3]
     texte = "".join(m.value for m in onglet.markdown)
-    for titre in ["Par code postal", "Par surface", "Appartements et maisons", "Ce qu'elle change", "Une enquête",
-                  "Année et DPE"]:
+    for titre in ["Par code postal", "Par surface", "Appartements et maisons", "Les ventes hors marché",
+                  "L'année de construction et le DPE", "Limites"]:
         assert titre in texte
     # 1 graphique de comparaison, 1 d'importance, 3 d'erreurs
     assert len(onglet.get("vega_lite_chart")) == 5
@@ -167,7 +167,7 @@ def test_annee_pre_remplie_et_dpe_repris_du_batiment_sans_saisie(monkeypatch):
     # pas de champ DPE : la classe du bâtiment est reprise automatiquement, et la note le dit
     assert not any(s.label == "Classe DPE" for s in app.selectbox)
     note = "".join(m.value for m in app.tabs[0].markdown)
-    assert f"classe DPE du bâtiment reprise automatiquement : {lettre_dpe(attendu['dpe_classe'])}" in note
+    assert f"La classe DPE du bâtiment est reprise automatiquement : {lettre_dpe(attendu['dpe_classe'])}" in note
 
     next(b for b in app.button if b.label == "Estimer le prix").click().run()
     assert not app.exception
@@ -189,7 +189,7 @@ def test_dpe_inconnu_reste_une_valeur_manquante(monkeypatch):
 
     app = lancer_app()
     app.text_input(key="texte").input("10 rue Inconnue").run()
-    assert "classe DPE inconnue" in "".join(m.value for m in app.tabs[0].markdown)
+    assert "La classe DPE reste inconnue" in "".join(m.value for m in app.tabs[0].markdown)
     next(b for b in app.button if b.label == "Estimer le prix").click().run()
     assert not app.exception
     assert app.session_state["resultat"]["dpe_classe"] is None and app.session_state["bien"]["dpe"] is None
@@ -218,7 +218,7 @@ def test_bonne_affaire_apres_estimation(monkeypatch, demande, verdict):
     analyse = app.session_state["affaire"]
     # verdict ferme, ou sa version prudente si la confiance est faible
     assert analyse["verdict"] in html and verdict.split()[0].lower() in analyse["verdict"].lower()
-    assert 'class="jauge-affaire"' in html and "pas une expertise" in html
+    assert 'class="jauge-affaire"' in html and "ventes comparables les plus proches" in html
     assert analyse["nb_comparables"] == 10 and 0 <= analyse["moins_chers"] <= 10
 
 
@@ -236,3 +236,21 @@ def test_bouton_rapport_pdf_apres_estimation(monkeypatch):
     assert not app.exception
     boutons = app.get("download_button")
     assert len(boutons) == 1 and boutons[0].proto.label == "Télécharger le rapport (PDF)"
+
+
+def test_textes_sans_titres_numerotes_ni_tirets_longs_et_une_seule_mise_en_garde(monkeypatch):
+    adresse = "10 Rue de la Loge 34000 Montpellier"
+    reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
+    monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (43.6110, 3.8790, adresse))
+
+    app = lancer_app()
+    next(b for b in app.button if b.label == "Écusson").click().run()
+    next(b for b in app.button if b.label == "Estimer le prix").click().run()
+    app.number_input(key="prix_demande").set_value(300_000).run()
+    assert not app.exception
+    textes = [m.value for m in app.markdown]
+    assert not any("—" in t for t in textes)
+    assert not any(f"0{i} —" in t or f"0{i} –" in t for t in textes for i in range(1, 10))
+    # une seule mise en garde, à côté de l'estimation
+    assert sum("ne remplace pas l'avis d'un professionnel" in t for t in textes) == 1

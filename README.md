@@ -1,37 +1,33 @@
 # immo-montpellier
 
-ESTIMATEUR DE PRIX IMMOBILIER EXPLICABLE – MONTPELLIER
+Estimation du prix d'un appartement ou d'une maison à Montpellier à partir de son adresse. L'application donne un prix, une fourchette, le détail de ce qui fait monter ou baisser ce prix, et les ventes réelles les plus proches.
 
-Combien vaut un logement à Montpellier, et pourquoi ? Cette application estime le prix d'un appartement ou d'une maison à partir de son adresse, donne une fourchette de prix, explique son estimation facteur par facteur et montre les ventes comparables du quartier.
-
-Essayer l'application : 
-
-https://estimateur-immo-montpellier.streamlit.app
+Application en ligne : https://estimateur-immo-montpellier.streamlit.app
 
 
-EN BREF
+## En bref
 
-Données : 23 338 ventes immobilières réelles à Montpellier (DVF, 2021-2025), enrichies avec OpenStreetMap, l'année de construction du bâtiment (BDNB) et sa classe DPE (ADEME).
-Modèle : LightGBM optimisé avec Optuna, avec une validation temporelle.
-Résultat sur 2025 (ventes jamais vues par le modèle) : erreur médiane de 10,5 %, et 48 % des estimations à moins de 10 % du vrai prix.
-Fourchette de prix : environ 7 vrais prix sur 10 tombent dans la fourchette proposée.
-Outils : Python, pandas, GeoPandas, scikit-learn, LightGBM, Optuna, SHAP, Streamlit, fpdf2, pytest.
+- Données : 23 338 ventes immobilières réelles à Montpellier (DVF, 2021-2025), enrichies avec OpenStreetMap, l'année de construction du bâtiment (BDNB) et sa classe DPE (ADEME).
+- Modèle : LightGBM réglé avec Optuna, validé dans le temps (apprentissage sur le passé, test sur l'année suivante).
+- Résultat sur 2025 (ventes jamais vues par le modèle) : erreur médiane de 10,5 %, et 48 % des estimations à moins de 10 % du vrai prix.
+- Fourchette de prix : environ 7 vrais prix sur 10 tombent dans la fourchette proposée.
+- Outils : Python, pandas, GeoPandas, scikit-learn, LightGBM, Optuna, SHAP, Streamlit, fpdf2, pytest.
 
 
-FONCTIONNALITÉS
+## Fonctionnalités
 
 - Suggestions d'adresses : on tape le début d'une adresse, l'application propose les adresses officielles de Montpellier (géocodage public de l'IGN).
-- Estimation et fourchette : un prix estimé, un prix au m², et une fourchette « bas – haut » obtenue par régression quantile.
+- Estimation et fourchette : un prix, un prix au m² et une fourchette basse et haute, obtenue par régression quantile.
 - Explication du prix : chaque estimation est décomposée facteur par facteur avec les valeurs SHAP (par exemple « +12 k€ grâce aux commerces, −7 k€ à cause de la surface »).
 - Indicateur de confiance : élevée, moyenne ou faible, selon le nombre de ventes similaires à proximité, la largeur de la fourchette et le caractère inhabituel de la surface.
-- Ventes comparables : une carte et un tableau des ventes réelles les plus proches, de même type et de surface proche, reliés par des numéros.
+- Ventes comparables : une carte et un tableau des ventes les plus proches, de même type et de surface proche.
 - Année de construction et DPE : l'année est pré-remplie à partir du bâtiment de l'adresse (BDNB) et reste modifiable ; la classe DPE n'est pas saisie : c'est celle du bâtiment (médiane des DPE de l'ADEME), laissée vide si aucun DPE n'est trouvé. Les deux apparaissent dans l'explication SHAP et dans le rapport PDF.
-- « Bonne affaire ? » : on saisit le prix d'une annonce ; l'application donne l'écart à l'estimation (en € et en %), sa place par rapport à la fourchette, un verdict (en dessous du marché, dans la fourchette, au-dessus, nettement au-dessus au-delà d'une demi-largeur de fourchette, seuil défini dans src/affaire.py), une jauge, et la position du prix au m² parmi les 10 ventes comparables. Si la confiance est faible, le verdict est formulé avec prudence.
-- Rapport PDF : un bouton « Télécharger le rapport (PDF) » produit en mémoire un rapport de 2 pages (adresse, caractéristiques dont année et DPE, prix, fourchette, confiance, facteurs SHAP, ventes comparables, verdict « Bonne affaire ? » s'il y a un prix demandé, méthode et limites), avec fpdf2 et les polices de l'application.
+- « Bonne affaire ? » : on saisit le prix d'une annonce et l'application le compare à l'estimation. Le verdict dépend de la place du prix par rapport à la fourchette ; il devient « nettement au-dessus » au-delà d'une demi-largeur de fourchette (seuil dans src/affaire.py). L'application indique aussi combien des 10 ventes comparables étaient moins chères au m². Si la confiance est faible, le verdict est formulé avec prudence.
+- Rapport PDF : le bouton « Télécharger le rapport (PDF) » génère un rapport de 2 pages avec fpdf2. Il reprend le logement, le prix et sa fourchette, l'explication, les ventes comparables, le verdict « Bonne affaire ? » s'il y a un prix demandé, et une courte partie sur la méthode et les limites.
 - Simulateur « Et si… ? » : modifier la surface, le nombre de pièces ou les dépendances et voir le prix évoluer, avec une courbe du prix selon la surface.
 
 
-RÉSULTATS
+## Résultats
 
 Le modèle est entraîné sur les ventes de 2021 à 2023, comparé aux autres sur 2024, puis évalué une seule fois sur 2025.
 
@@ -54,7 +50,7 @@ Le gain est modeste. L'erreur moyenne en euros baisse à chaque entraînement (d
 Résultat final sur les ventes de 2025 (test lancé une seule fois, pour le modèle retenu) : erreur moyenne 29 782 €, MAPE 15,7 %, erreur médiane de 10,5 %, et 48 % des estimations à moins de 10 % du vrai prix ; 73 % des vrais prix dans la fourchette. La première version obtenait 10,8 % et 47 %, mais sur un jeu 2025 qui contenait encore 57 ventes hors marché : les deux chiffres ne sont pas directement comparables. L'indicateur de confiance reste cohérent sur 2025 : erreur médiane de 7,9 % en confiance élevée, 12,3 % en moyenne, 17,5 % en faible.
 
 
-DÉMARCHE
+## Démarche
 
 1. Données (src/ingest.py) : téléchargement automatique des ventes DVF géolocalisées de Montpellier.
 2. Nettoyage (src/clean.py) : une ligne DVF n'est pas une vente. Le script dédoublonne les lignes, exclut les ventes de plusieurs logements (prix impossible à répartir), retire les surfaces aberrantes, les prix au m² extrêmes et les ventes hors marché (moins de 30 % du prix médian local : viagers, ventes partielles, ventes en bloc). Les caves et parkings sont conservés comme variable. La règle des ventes hors marché retire 370 ventes.
@@ -66,15 +62,15 @@ DÉMARCHE
 8. Application (src/predict.py, app/streamlit_app.py) : le calcul est séparé de l'affichage, et les variables sont calculées avec exactement les mêmes fonctions qu'à l'entraînement.
 
 
-CE QUE J'AI APPRIS
+## Ce que j'ai appris
 
-- Une validation honnête change tout : un découpage aléatoire laisse le modèle « voir le futur » et donne des scores trop optimistes.
-- Les pires erreurs n'étaient pas des erreurs du modèle : les estimations les plus fausses concernaient des ventes autour de 600 €/m², dont plusieurs dans le même immeuble au même prix. Plutôt que de supprimer les prédictions gênantes, j'ai ajouté une règle de nettoyage fixée à l'avance pour toutes les années.
+- Le découpage des données compte beaucoup : avec un découpage aléatoire, le modèle « voit le futur » et les scores sont trop optimistes. J'ai donc appris sur le passé et testé sur l'année suivante.
+- Les pires erreurs ne venaient pas du modèle : elles concernaient des ventes à une fraction du prix du quartier (viagers, ventes partielles, lots vendus ensemble). Plutôt que de supprimer les prédictions gênantes, j'ai ajouté une règle de nettoyage fixée à l'avance pour toutes les années.
 - Une variable intuitive n'apporte pas forcément beaucoup : le DPE et l'année de construction améliorent à peine le modèle, car l'emplacement et la surface en disent déjà beaucoup. Répéter l'entraînement avec plusieurs graines aléatoires permet de séparer un vrai gain du hasard.
-- Corrélation n'est pas causalité : les logements proches du tram sont plus chers, mais ils sont aussi plus proches du centre. SHAP aide à séparer les deux effets dans le modèle, sans prouver de relation de cause à effet.
+- Les logements proches du tram sont plus chers, mais ils sont aussi plus proches du centre. SHAP aide à séparer les deux effets dans le modèle, sans prouver de lien de cause à effet.
 
 
-STRUCTURE DU PROJET
+## Structure du projet
 
 - app/streamlit_app.py : l'application
 - app/requirements.txt : les dépendances (versions figées) pour le déploiement
@@ -101,7 +97,7 @@ STRUCTURE DU PROJET
 - NOTES.md : journal de bord détaillé du projet
 
 
-LANCER LE PROJET EN LOCAL
+## Lancer le projet en local
 
 Installation :
 git clone https://github.com/James-Rigault/immo-montpellier.git
@@ -130,24 +126,24 @@ Lancer les tests :
 python -m pytest
 
 
-LIMITES
+## Limites
 
 - Les données DVF ne contiennent ni l'état du bien, ni l'étage, ni la vue : une partie des écarts de prix est impossible à prévoir.
 - Le DPE utilisé est la classe médiane du bâtiment, pas celle du logement vendu ; il n'est donc pas demandé à l'utilisateur. Les DPE ne commencent qu'en juillet 2021.
 - Le prix enregistré inclut les caves et parkings vendus avec le logement.
 - Le modèle ne couvre que la commune de Montpellier.
 - Les lieux OpenStreetMap sont ceux d'aujourd'hui, pas ceux de la date de chaque vente.
-- L'année n'est pas une variable du modèle : une évolution rapide du marché peut le décaler.
+- La date de vente n'est pas une variable du modèle : une évolution rapide du marché peut le décaler.
 
 
-PISTES D'AMÉLIORATION
+## Pistes d'amélioration
 
 - Intégrer les ventes de logements neufs (VEFA) avec une variable « neuf / ancien ».
 - Suivre l'évolution du marché avec un indice des prix mensuel.
 - Estimer la rentabilité locative à partir des données publiques de loyers.
 
 
-SOURCES DES DONNÉES
+## Sources des données
 
 - Demandes de valeurs foncières géolocalisées (DVF) : DGFiP et Etalab, data.gouv.fr, Licence Ouverte 2.0.
 - OpenStreetMap : © les contributeurs d'OpenStreetMap, licence ODbL.
@@ -155,9 +151,9 @@ SOURCES DES DONNÉES
 - Base de données nationale des bâtiments (BDNB), export open data du département 34, millésime 2026-02.b (CSTB), Licence Ouverte 2.0.
 - DPE Logements existants (depuis juillet 2021), jeu dpe03existant : ADEME, data.ademe.fr, Licence Ouverte 2.0.
 
-Les estimations de cette application sont indicatives et réalisées dans un cadre pédagogique.
+Projet réalisé dans un cadre pédagogique : les estimations sont indicatives.
 
 
-AUTEUR
+## Auteur
 
 James Rigault, étudiant en 2e année d'école d'ingénieur.

@@ -48,13 +48,7 @@ class Rapport(FPDF):
         self.set_y(-12)
         self.set_font("Hanken", "", 7.5)
         self.set_text_color(*GRIS)
-        self.cell(0, 4, texte("Estimation indicative établie par un modèle statistique — "
-                              f"page {self.page_no()} sur {{nb}}"), align="C")
-
-    def etiquette(self, valeur):
-        self.set_font("Hanken", "B", 7.5)
-        self.set_text_color(*GRIS)
-        self.cell(0, 5, texte(valeur.upper()), new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 4, f"Page {self.page_no()} sur {{nb}}", align="C")
 
     def titre(self, valeur, taille=20):
         self.set_font("Cormorant", "", taille)
@@ -71,8 +65,8 @@ class Rapport(FPDF):
         self.set_line_width(epaisseur)
         self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
 
-    def section(self, numero, titre, hauteur=40):
-        """Nouvelle section : un filet encre, l'étiquette numérotée, le titre serif.
+    def section(self, titre, hauteur=40):
+        """Nouvelle section : un filet encre puis le titre serif.
 
         Si la section (titre compris, environ 25 mm, plus `hauteur` mm de contenu) ne tient pas
         sur la page, elle commence sur la suivante : un graphique n'est jamais coupé en deux.
@@ -81,8 +75,7 @@ class Rapport(FPDF):
             self.add_page()
         self.ln(5)
         self.filet(ENCRE, 0.3)
-        self.ln(3)
-        self.etiquette(numero)
+        self.ln(4)
         self.titre(titre, 17)
         self.ln(2)
 
@@ -141,11 +134,11 @@ class Rapport(FPDF):
         self.line(zero, y0, zero, self.get_y())
 
     def tableau(self, entetes, lignes, largeurs, alignements):
-        """Tableau à filets horizontaux, en-têtes en petites capitales grises, chiffres alignés à droite."""
-        self.set_font("Hanken", "B", 7)
+        """Tableau à filets horizontaux, en-têtes gris, chiffres alignés à droite."""
+        self.set_font("Hanken", "", 8)
         self.set_text_color(*GRIS)
         for entete, largeur, alignement in zip(entetes, largeurs, alignements):
-            self.cell(largeur, 6, texte(entete.upper()), align=alignement)
+            self.cell(largeur, 6, texte(entete), align=alignement)
         self.ln(6)
         self.filet(ENCRE, 0.3)
         self.set_font("Hanken", "", 8.5)
@@ -166,54 +159,57 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
     pdf = Rapport()
     pdf.add_page()
 
-    pdf.etiquette(f"Estimation immobilière · Montpellier · {date_longue(jour or date.today())}")
-    pdf.ln(2)
+    pdf.paragraphe(f"Estimation du {date_longue(jour or date.today())}", 8.5, GRIS)
+    pdf.ln(1)
     pdf.titre(r["adresse"], 24)
 
-    pdf.section("01 — Le bien", "Caractéristiques")
+    pdf.section("Le logement")
     pdf.lignes([
         ("Type de bien", bien["type_local"]),
         ("Surface habitable", f"{bien['surface']:.0f} m²"),
         ("Nombre de pièces", str(bien["pieces"])),
         ("Caves et parkings", str(bien["dependances"])),
-        ("Terrain", f"{bien['terrain']:.0f} m²" if bien["terrain"] else "—"),
+        ("Terrain", f"{bien['terrain']:.0f} m²" if bien["terrain"] else "aucun"),
         ("Année de construction", str(bien["annee"]) if bien.get("annee") else "Inconnue"),
         ("Classe DPE du bâtiment", f"{bien['dpe']} (données du bâtiment, BDNB et ADEME)" if bien.get("dpe")
          else "Inconnue (aucun DPE trouvé pour le bâtiment)"),
     ])
 
-    pdf.section("02 — Estimation", "Prix estimé")
+    pdf.section("Prix estimé")
     pdf.chiffres([
         (euros(r["prix"]), f"Soit {euros(r['prix_m2'])} le m²"),
         (euros(r["prix_bas"]), "Fourchette basse"),
         (euros(r["prix_haut"]), "Fourchette haute"),
     ])
-    pdf.lignes([("Confiance", f"{niveau.capitalize()} — " + " ; ".join(raisons))], largeur_cle=30)
+    pdf.lignes([("Confiance", f"{niveau.capitalize()} : " + ", ".join(raisons))], largeur_cle=30)
     pdf.ln(1)
     pdf.paragraphe(f"Sur les ventes de 2025, {chiffres['couverture'] / 10:.0f} vrais prix sur 10 se trouvaient "
                    "dans une fourchette de ce type.", 8.5, GRIS)
 
     if affaire:
-        pdf.section("03 — Bonne affaire ?", affaire["verdict"])
-        pdf.chiffres([
-            (euros(affaire["prix_demande"]), "Prix demandé"),
-            (f"{affaire['ecart']:+,.0f} €".replace(",", " ").replace("-", "−")
-             + f" ({affaire['ecart_pct']:+.1f} %)".replace(".", ",").replace("-", "−"), "Écart à l'estimation"),
-            (f"{affaire['moins_chers']} sur {affaire['nb_comparables']}", "Ventes comparables moins chères au m²"),
-        ])
+        pdf.section("Bonne affaire ?")
+        pdf.titre(affaire["verdict"], 14)
+        pdf.ln(1)
+        if round(affaire["ecart"]) == 0:
+            ecart = "est égal à l'estimation"
+        else:
+            sens = "au-dessus" if affaire["ecart"] > 0 else "en dessous"
+            ecart = (f"est {euros(abs(affaire['ecart']))} {sens} de l'estimation "
+                     f"({affaire['ecart_pct']:+.1f}\u00a0%)".replace(".", ",").replace("-", "−"))
+        pdf.paragraphe(f"Le prix demandé, {euros(affaire['prix_demande'])}, {ecart}. Au m², il est plus cher que "
+                       f"{affaire['moins_chers']} des {affaire['nb_comparables']} ventes comparables les plus proches.")
         if affaire["prudent"]:
-            pdf.paragraphe("Confiance faible : ce verdict est une indication, à vérifier avec d'autres références.",
-                           8.5, GRIS)
+            pdf.paragraphe("La confiance est faible : ce verdict est une simple indication.", 8.5, GRIS)
 
-    numero = 4 if affaire else 3
-    pdf.section(f"{numero:02d} — Lecture", "Pourquoi ce prix", hauteur=15 + 6 * len(facteurs))
+    pdf.section("Pourquoi ce prix", hauteur=15 + 6 * len(facteurs))
     pdf.paragraphe(f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface. Chaque "
-                   "caractéristique l'augmente (en noir) ou le diminue (en gris). Méthode : valeurs SHAP.", 8.5)
+                   "caractéristique l'augmente (en noir) ou le diminue (en gris). Ces effets sont calculés avec les "
+                   "valeurs SHAP.", 8.5)
     pdf.ln(2)
     pdf.barres(facteurs)
 
     comparables = r["comparables"].reset_index(drop=True)
-    pdf.section(f"{numero + 1:02d} — Références", "Ventes comparables", hauteur=8 + 6.5 * len(comparables))
+    pdf.section("Ventes comparables", hauteur=8 + 6.5 * len(comparables))
     pdf.tableau(
         ["N°", "Date", "Adresse", "Surface", "Pièces", "Prix", "Prix au m²", "Distance"],
         [
@@ -225,18 +221,18 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
         [8, 15, 52, 17, 13, 24, 22, 23], ["L", "L", "L", "R", "R", "R", "R", "R"],
     )
 
-    pdf.section(f"{numero + 2:02d} — Méthode et limites", "Comment lire ce rapport")
+    pdf.section("Méthode et limites")
     pdf.paragraphe(
-        "Estimation par un modèle LightGBM appris sur les ventes réelles de Montpellier (DVF) de 2021 à 2024, "
-        "enrichies avec OpenStreetMap, l'année de construction du bâtiment (BDNB) et sa classe DPE médiane (ADEME). "
-        f"Sur les ventes de 2025, jamais vues par le modèle, l'erreur médiane est de {pourcent(chiffres['erreur_mediane'])} "
-        f"et {chiffres['part_10']:.0f} % des estimations sont à moins de 10 % du vrai prix. "
-        "La fourchette provient de deux modèles quantiles (10 % et 90 %)."
+        "L'estimation vient d'un modèle LightGBM appris sur les ventes réelles de Montpellier (DVF) de 2021 à 2024. "
+        "Il utilise aussi les lieux proches (OpenStreetMap), l'année de construction du bâtiment (BDNB) et sa classe "
+        f"DPE médiane (ADEME). Sur les ventes de 2025, qu'il n'avait jamais vues, l'erreur médiane est de "
+        f"{pourcent(chiffres['erreur_mediane'])} et {chiffres['part_10']:.0f}\u00a0% des estimations sont à moins de "
+        "10\u00a0% du vrai prix. La fourchette vient de deux modèles quantiles (10\u00a0% et 90\u00a0%)."
     )
     pdf.ln(2)
     pdf.paragraphe(
-        "Ce rapport est une estimation statistique, pas une expertise : l'état du logement, l'étage, la vue, "
-        "l'exposition et les travaux ne sont pas pris en compte. Le DPE utilisé est celui du bâtiment, pas celui du "
-        "logement. Les prix incluent les caves et parkings vendus avec le logement."
+        "C'est une estimation statistique : le modèle ne connaît ni l'état du logement, ni l'étage, ni la vue. Elle "
+        "ne remplace pas l'avis d'un professionnel. Le DPE utilisé est celui du bâtiment, pas celui du logement, et "
+        "les prix de vente incluent les caves et parkings vendus avec le logement."
     )
     return bytes(pdf.output())

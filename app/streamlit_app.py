@@ -64,7 +64,7 @@ def noms_facteurs(r):
     """Noms lisibles des facteurs SHAP ; la classe DPE, reprise du bâtiment, est précisée entre parenthèses."""
     return {**NOMS, "dpe_classe": f"Classe DPE du bâtiment ({lettre_dpe(r.get('dpe_classe')) or 'inconnue'})"}
 
-st.set_page_config(page_title="Estimation immobilière — Montpellier", layout="wide")
+st.set_page_config(page_title="Estimation immobilière à Montpellier", layout="wide")
 
 
 @st.cache_resource
@@ -99,11 +99,11 @@ def infos_batiment(adresse):
 def note_batiment(infos):
     """Une phrase sous le formulaire : d'où viennent l'année pré-remplie et la classe DPE du bâtiment."""
     if not infos or not infos["trouve"]:
-        return "Bâtiment non retrouvé : année à renseigner si vous la connaissez ; classe DPE inconnue."
-    dpe = (f"classe DPE du bâtiment reprise automatiquement : {lettre_dpe(infos['dpe_classe'])} "
-           f"(médiane de {infos['nb_dpe']} DPE, ADEME)" if infos["nb_dpe"]
-           else "aucun DPE connu pour ce bâtiment")
-    return f"Année pré-remplie d'après le bâtiment (Fichiers fonciers, BDNB), modifiable ; {dpe}."
+        return "Bâtiment non retrouvé : indiquez l'année si vous la connaissez. La classe DPE reste inconnue."
+    dpe = (f"La classe DPE du bâtiment est reprise automatiquement : {lettre_dpe(infos['dpe_classe'])} "
+           f"(médiane de {infos['nb_dpe']} DPE, ADEME)." if infos["nb_dpe"]
+           else "Aucun DPE n'est connu pour ce bâtiment.")
+    return f"L'année vient des Fichiers fonciers (BDNB), vous pouvez la corriger. {dpe}"
 
 
 def remplir_adresse(exemple):
@@ -169,21 +169,15 @@ def champ_adresse(cle, exemple, libelle="Adresse"):
 def hero():
     """Ouverture plein écran : titre, champ d'adresse et chiffres clés. Renvoie l'adresse choisie."""
     with st.container(key="hero"):
-        st.markdown(f"""
-<div class="bandeau">
-  <span class="etiquette">Montpellier</span>
-  <span class="etiquette">Estimation immobilière · Ventes {annees.min()}–{annees.max()}</span>
-</div>""", unsafe_allow_html=True)
-
         gauche, droite = st.columns([7, 5], gap="large", vertical_alignment="bottom")
         gauche.markdown(f"""
 <h1 class="hero-titre">Ce que vaut<br>un logement<br><em>à Montpellier.</em></h1>
-<p class="hero-texte">Une estimation fondée sur {nb_ventes} ventes réelles, avec sa fourchette
-et les raisons de son prix.</p>""", unsafe_allow_html=True)
+<p class="hero-texte">Le modèle a appris sur {nb_ventes} ventes réelles enregistrées entre {annees.min()} et
+{annees.max()}. Entrez une adresse pour estimer un appartement ou une maison.</p>""", unsafe_allow_html=True)
 
         with droite:
             adresse = champ_adresse("texte", "10 rue de la Loge")
-            st.markdown('<span class="etiquette">Exemples</span>', unsafe_allow_html=True)
+            st.markdown('<span class="etiquette">Exemples :</span>', unsafe_allow_html=True)
             with st.container(horizontal=True, key="exemples"):
                 for quartier, exemple in EXEMPLES.items():
                     st.button(quartier, on_click=remplir_adresse, args=(exemple,))
@@ -197,18 +191,18 @@ et les raisons de son prix.</p>""", unsafe_allow_html=True)
     return adresse
 
 
-def entete(numero, titre, texte=""):
-    """En-tête de section éditorial : numéro en petites capitales, titre serif, texte court."""
+def entete(titre, texte=""):
+    """Titre de section en serif, suivi d'un texte court facultatif."""
     paragraphe = f'<p class="texte-court">{texte}</p>' if texte else ""
-    return f'<span class="etiquette">{numero}</span><h2 class="titre-section">{titre}</h2>{paragraphe}'
+    return f'<h2 class="titre-section">{titre}</h2>{paragraphe}'
 
 
 def section_bien(adresse):
-    """01 — le formulaire. Enregistre le résultat dans la session quand l'estimation réussit."""
+    """Le formulaire. Enregistre le résultat dans la session quand l'estimation réussit."""
     with st.container(key="section-bien"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "01 — Le bien", "Décrire le logement",
+            "Le logement",
             "L'adresse se saisit en haut de page. Les caves et parkings vendus avec le logement comptent dans le prix.",
         ), unsafe_allow_html=True)
         infos = infos_batiment(adresse) if adresse else None
@@ -280,8 +274,8 @@ def section_resultat(r, bien, niveau, raisons):
         )
         droite.markdown(badge_confiance(niveau, raisons), unsafe_allow_html=True)
         droite.markdown(
-            f'<p class="note">Sur les ventes de 2025, {chiffres["couverture"] / 10:.0f} vrais prix sur 10 '
-            "se trouvaient dans une fourchette de ce type.</p>",
+            '<p class="note">C\'est une estimation statistique : le modèle ne connaît ni l\'état du logement, ni '
+            "l'étage, ni la vue. Elle ne remplace pas l'avis d'un professionnel.</p>",
             unsafe_allow_html=True,
         )
         # rempli plus bas, une fois la section « Bonne affaire ? » passée : le PDF reprend le prix demandé
@@ -302,9 +296,8 @@ def section_affaire(r, bien, niveau):
     with st.container(key="section-affaire"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "02 — Bonne affaire ?", "Le prix demandé",
-            "Saisissez le prix d'une annonce : il est comparé à l'estimation, à sa fourchette et aux ventes "
-            "comparables du quartier.",
+            "Bonne affaire ?",
+            "Si vous avez vu ce logement dans une annonce, entrez le prix demandé pour le comparer à l'estimation.",
         ), unsafe_allow_html=True)
         with droite:
             demande = st.number_input("Prix demandé (€)", min_value=1_000, max_value=10_000_000, value=None,
@@ -319,42 +312,38 @@ def section_affaire(r, bien, niveau):
             analyse.update(prix_demande=demande, moins_chers=moins_chers, nb_comparables=total)
             st.session_state["affaire"] = analyse  # repris dans le rapport PDF
 
-            sens = "au-dessus" if analyse["ecart"] > 0 else "en dessous"
+            if round(analyse["ecart"]) == 0:
+                ecart = "Le prix demandé est égal à l'estimation."
+            else:
+                sens = "au-dessus" if analyse["ecart"] > 0 else "en dessous"
+                ecart = (f"Le prix demandé est {euros(abs(analyse['ecart']))} {sens} de l'estimation "
+                         f"({signe(analyse['ecart_pct'], pourcent(abs(analyse['ecart_pct'])))}).")
             st.markdown(f"""
-<span class="etiquette">Verdict</span>
 <p class="verdict">{analyse["verdict"]}</p>
-<div class="chiffres">
-  <div class="chiffre"><b>{signe(analyse["ecart"], euros(abs(analyse["ecart"])))}</b><span>Écart à l'estimation</span></div>
-  <div class="chiffre"><b>{signe(analyse["ecart_pct"], pourcent(abs(analyse["ecart_pct"])))}</b><span>{sens.capitalize()} de l'estimation</span></div>
-  <div class="chiffre"><b>{moins_chers} sur {total}</b><span>Ventes comparables moins chères au m² ({euros(demande / bien["surface"])} le m² demandé)</span></div>
-</div>""", unsafe_allow_html=True)
+<p class="texte-section">{ecart} Au m² ({euros(demande / bien["surface"])}), il est plus cher que {moins_chers} des
+{total} ventes comparables les plus proches.</p>""", unsafe_allow_html=True)
             st.markdown(jauge_affaire(r["prix"], r["prix_bas"], r["prix_haut"], demande, euros),
                         unsafe_allow_html=True)
             if analyse["prudent"]:
                 st.warning("Confiance faible : peu de ventes comparables ou fourchette large. Ce verdict est une "
                            "indication, à vérifier avec d'autres références.")
-            st.markdown(
-                '<p class="note">Estimation statistique, pas une expertise : l\'état du logement, l\'étage, la vue, '
-                "l'exposition ou les travaux à prévoir ne sont pas pris en compte et peuvent justifier un écart.</p>",
-                unsafe_allow_html=True,
-            )
 
 
 def section_pourquoi(r):
-    """03 — l'explication SHAP du prix."""
+    """L'explication SHAP du prix."""
     with st.container(key="section-ombre-pourquoi"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "03 — Lecture", "Pourquoi ce prix",
+            "Pourquoi ce prix",
             f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface. Chaque caractéristique "
-            "l'augmente (en noir) ou le diminue (en gris). Méthode : valeurs SHAP.",
+            "l'augmente (en noir) ou le diminue (en gris). Ces effets sont calculés avec les valeurs SHAP.",
         ), unsafe_allow_html=True)
         principaux = regrouper_facteurs(r["facteurs"]).head(8).rename(index=noms_facteurs(r))
         droite.altair_chart(graphique_facteurs(principaux), width="stretch")
 
 
 def section_comparables(r):
-    """04 — carte et tableau des ventes comparables, numérotées."""
+    """Carte et tableau des ventes comparables, numérotées."""
     comp = r["comparables"].reset_index(drop=True)
     comp["adresse"] = adresses_comparables(comp)
     comp["repere"] = [str(i + 1) for i in range(len(comp))]
@@ -406,9 +395,9 @@ def section_comparables(r):
 
     with st.container(key="section-comparables"):
         st.markdown(entete(
-            "04 — Références", "Ventes comparables",
-            "Les ventes de même type et de surface proche les plus près de l'adresse. "
-            "En vert, le bien estimé ; en noir, les ventes numérotées du tableau.",
+            "Ventes comparables",
+            "Les ventes du même type et de surface proche les plus près de l'adresse. Le point vert est le "
+            "logement estimé, les points noirs renvoient aux numéros du tableau.",
         ), unsafe_allow_html=True)
         st.pydeck_chart(pdk.Deck(
             layers=[cercles, numeros], initial_view_state=vue, tooltip={"text": "{info}"},
@@ -418,13 +407,13 @@ def section_comparables(r):
 
 
 def section_simulateur(r, bien):
-    """05 — « Et si » : on change les caractéristiques, au même emplacement."""
+    """« Et si » : on change les caractéristiques, au même emplacement."""
     estimateur = charger_estimateur()
     with st.container(key="section-ombre-simulateur"):
         gauche, droite = st.columns([4, 8], gap="large")
         with gauche:
             st.markdown(entete(
-                "05 — Simulation", "Et si…",
+                "Et si…",
                 "Modifiez les caractéristiques : le prix est recalculé au même emplacement.",
             ), unsafe_allow_html=True)
             sim_type = st.radio(
@@ -454,7 +443,7 @@ def section_simulateur(r, bien):
             st.markdown(f"""
 <div class="simulation">
   <div><span class="etiquette">Prix simulé</span><b>{euros(prix_sim)}</b><span class="note">{comparaison}</span></div>
-  <div><span class="etiquette">Prix au m²</span><b>{euros(prix_sim / sim_surface)}</b></div>
+  <div><span class="etiquette">Au m²</span><b>{euros(prix_sim / sim_surface)}</b></div>
 </div>""", unsafe_allow_html=True)
             st.altair_chart(graphique_courbe(surfaces, prix_courbe, sim_surface, prix_sim), width="stretch")
             st.markdown(
@@ -478,9 +467,6 @@ def onglet_estimer(adresse):
     section_comparables(r)
     section_simulateur(r, bien)
 
-
-# ---------- Explorer le marché ----------
-# les agrégations sont gardées en mémoire pour chaque combinaison de filtres : l'app reste rapide
 
 @st.cache_data(show_spinner=False)
 def bornes_carte():
@@ -519,9 +505,9 @@ def onglet_explorer():
         gauche, droite = st.columns([4, 8], gap="large")
         with gauche:
             st.markdown(entete(
-                "01 — Carte", "Les prix par quartier",
-                f"Prix au m² médian des ventes, par zone d'environ 430 m de large. Une zone n'apparaît qu'à "
-                f"partir de {MIN_VENTES} ventes : en dessous, sa médiane dépendrait de trop peu de cas.",
+                "Prix au m² par quartier",
+                f"Prix au m² médian par zone d'environ 430 m de large. Une zone n'est affichée qu'à partir de "
+                f"{MIN_VENTES} ventes, sinon sa médiane ne voudrait pas dire grand-chose.",
             ), unsafe_allow_html=True)
             type_local = st.radio("Type de bien", ["Tous", "Appartement", "Maison"], horizontal=True,
                                   key="marche_type")
@@ -535,7 +521,7 @@ def onglet_explorer():
                 bornes = bornes_carte()
                 zones = zones.assign(
                     couleur=[couleur_classe(p, bornes) for p in zones["prix_m2"]],
-                    info=[f"{euros(p)} le m² · {n} ventes" for p, n in zip(zones["prix_m2"], zones["nb_ventes"])],
+                    info=[f"{euros(p)} le m², {n} ventes" for p, n in zip(zones["prix_m2"], zones["nb_ventes"])],
                 )
                 hexagones = pdk.Layer(
                     "PolygonLayer", data=zones, get_polygon="contour", get_fill_color="couleur", opacity=0.85,
@@ -562,9 +548,9 @@ def onglet_explorer():
     with st.container(key="section-ombre-explorer-evolution"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "02 — Évolution", "Cinq ans de prix",
-            "Prix au m² médian de chaque année, pour les appartements et pour les maisons. "
-            "Le filtre de type ne s'applique pas ici ; l'année choisie est marquée d'un pointillé.",
+            "Évolution des prix",
+            "Prix au m² médian de chaque année, pour les appartements et pour les maisons. Le filtre de type ne "
+            "s'applique pas à ce graphique. L'année choisie est marquée d'un pointillé.",
         ), unsafe_allow_html=True)
         droite.altair_chart(
             graphique_evolution(evolution_marche(), None if annee == "Toutes" else annee), width="stretch"
@@ -573,15 +559,13 @@ def onglet_explorer():
     with st.container(key="section-explorer-pieces"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "03 — Taille", "Selon le nombre de pièces",
-            f"Pour {description_filtres(type_local, annee)} : la boîte contient la moitié des ventes, le "
-            "trait noir est la médiane, le filet va du 1er au 9e décile (8 ventes sur 10). "
-            f"Une taille de logement n'est montrée qu'à partir de {MIN_VENTES} ventes.",
+            "Prix au m² selon le nombre de pièces",
+            f"Pour {description_filtres(type_local, annee)}. La boîte contient la moitié des ventes, le trait noir "
+            "est la médiane et la ligne fine va du 1er au 9e décile. Une taille de logement n'est affichée qu'à "
+            f"partir de {MIN_VENTES} ventes.",
         ), unsafe_allow_html=True)
         droite.altair_chart(graphique_pieces(pieces_marche(type_local, annee)), width="stretch")
 
-
-# ---------- Comparer ----------
 
 BIENS = {"A": "4 boulevard du Jeu de Paume", "B": "20 avenue de Toulouse"}  # exemples affichés en gris
 TITRES_BIENS = {"A": "1er Bien", "B": "2ème Bien"}  # ce que voit l'utilisateur ; A et B restent les clés internes
@@ -648,25 +632,23 @@ def section_ecart(resultats):
         if e["chevauchement"] else
         "Leurs fourchettes ne se recouvrent pas : l'écart dépasse la marge d'incertitude du modèle."
     )
+    detail = "" if round(e["ecart"]) == 0 else (
+        f" Cela fait {signe(e['ecart_pct'], pourcent(abs(e['ecart_pct'])))} par rapport au 1er bien, et "
+        f"{euros(abs(e['ecart_m2']))} de {'plus' if e['ecart_m2'] > 0 else 'moins'} au m²."
+    )
     with st.container(key="section-comparer-ecart"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("03 — Écart", "Le 2ème face au 1er", phrase), unsafe_allow_html=True)
-        droite.markdown(f"""
-<div class="chiffres">
-  <div class="chiffre"><b>{signe(e["ecart"], euros(abs(e["ecart"])))}</b><span>Écart de prix</span></div>
-  <div class="chiffre"><b>{signe(e["ecart_pct"], pourcent(abs(e["ecart_pct"])))}</b><span>En pourcentage du prix du 1er bien</span></div>
-  <div class="chiffre"><b>{signe(e["ecart_m2"], euros(abs(e["ecart_m2"])))}</b><span>Écart au m²</span></div>
-</div>
-<p class="note">{prudence}</p>""", unsafe_allow_html=True)
+        gauche.markdown(entete("Écart entre les deux"), unsafe_allow_html=True)
+        droite.markdown(f'<p class="texte-section">{phrase}{detail} {prudence}</p>', unsafe_allow_html=True)
 
 
 def onglet_comparer():
     """Deux biens, deux estimations, leurs 5 principaux facteurs, puis l'écart entre les deux."""
     with st.container(key="section-comparer-biens"):
         st.markdown(entete(
-            "01 — Les biens", "Comparer deux logements",
-            "Deux adresses, deux descriptions : chaque bien est estimé par le même modèle que l'onglet Estimer. "
-            "L'année de construction et le DPE sont repris du bâtiment de chaque adresse.",
+            "Comparer deux logements",
+            "Chaque logement est estimé avec le même modèle que dans l'onglet Estimer. L'année de construction "
+            "et le DPE viennent du bâtiment de chaque adresse.",
         ), unsafe_allow_html=True)
         biens = formulaire_comparaison()
         if biens:
@@ -681,9 +663,8 @@ def onglet_comparer():
 
     with st.container(key="section-ombre-comparer-resultats"):
         st.markdown(entete(
-            "02 — Estimations", "Prix et raisons",
-            "Pour chaque bien, le prix, sa fourchette, et les 5 caractéristiques qui pèsent le plus sur ce prix "
-            "(valeurs SHAP, en milliers d'euros).",
+            "Les deux estimations",
+            "Sous chaque prix, les 5 caractéristiques qui pèsent le plus, en milliers d'euros.",
         ), unsafe_allow_html=True)
         for nom, colonne in zip(resultats, st.columns(2, gap="large")):
             r = resultats[nom]
@@ -700,12 +681,12 @@ def onglet_comparer():
 
 
 def liste_filets(elements):
-    """Liste numérotée éditoriale : chaque élément (titre, texte) entre deux filets."""
+    """Liste entre deux filets. Un élément est une phrase, ou un couple (titre, texte)."""
     lignes = "".join(
-        f'<li><span class="liste-numero">{i:02d}</span><div><b>{titre}</b><p>{texte}</p></div></li>'
-        for i, (titre, texte) in enumerate(elements, start=1)
+        f'<li><span class="titre-liste">{e[0]}</span><p>{e[1]}</p></li>' if isinstance(e, tuple) else f"<li>{e}</li>"
+        for e in elements
     )
-    return f'<ol class="liste-filets">{lignes}</ol>'
+    return f'<ul class="liste-filets">{lignes}</ul>'
 
 
 @st.cache_data(show_spinner=False)
@@ -736,13 +717,13 @@ def rapports_batiment():
 
 
 def section_erreurs():
-    """03 — où le modèle se trompe le plus, sur les ventes de 2025."""
+    """Où le modèle se trompe le plus, sur les ventes de 2025."""
     with st.container(key="section-modele-erreurs"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "03 — Détail", "Où il se trompe",
-            f"Erreur médiane sur les ventes de 2025, groupe par groupe. Le pointillé vert marque l'erreur médiane "
-            f"de l'ensemble ({pourcent(chiffres['erreur_mediane'])}).",
+            "Où il se trompe le plus",
+            f"Erreur médiane sur les ventes de 2025, par code postal, par surface et par type de bien. Le "
+            f"pointillé vert marque l'erreur médiane globale ({pourcent(chiffres['erreur_mediane'])}).",
         ), unsafe_allow_html=True)
         with droite:
             for titre, erreurs in erreurs_2025().items():
@@ -751,48 +732,36 @@ def section_erreurs():
 
 
 def section_hors_marche():
-    """04 — l'histoire des ventes hors marché et de la règle de nettoyage qui en a découlé."""
+    """Les ventes hors marché et la règle de nettoyage qui en a découlé."""
     b, comparaison, _ = rapports_batiment()
     avec = comparaison.loc["Ancien modèle (sans la règle)", "MAE (€)"]
     sans = comparaison.loc["Anciennes variables, données nettoyées", "MAE (€)"]
     immeuble = (
-        f" Jusqu'à {b['plus_grand_groupe']} ventes partagent la même adresse et le même prix au m² : sans doute "
-        "des lots vendus en bloc." if b["plus_grand_groupe"] > 1 else ""
+        f" Certaines partageaient la même adresse et le même prix au m² (jusqu'à {b['plus_grand_groupe']} "
+        "ventes) : sans doute des lots vendus ensemble." if b["plus_grand_groupe"] > 1 else ""
     )
+    effet = "ne change presque rien" if abs(sans - avec) < 0.02 * avec else "change peu"
     with st.container(key="section-ombre-modele-hors-marche"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
-            # espace insécable : le nombre et « € » ne sont jamais séparés par un retour à la ligne
-            "04 — Une enquête", f"Les ventes à {euros(round(b['prix_m2_median_retirees'], -2)).replace(' ', chr(160))} le m²",
-            "En étudiant les pires erreurs, une famille de ventes revenait sans cesse. Le modèle n'y était pour rien.",
-        ), unsafe_allow_html=True)
+        gauche.markdown(entete("Les ventes hors marché"), unsafe_allow_html=True)
         droite.markdown(f"""
-<div class="chiffres">
-  <div class="chiffre"><b>{nombre(b["ventes_retirees"])}</b><span>Ventes retirées par la règle, sur {nombre(b["ventes_avant"])}</span></div>
-  <div class="chiffre"><b>{euros(b["prix_m2_median_retirees"])}</b><span>Prix au m² médian de ces ventes</span></div>
-  <div class="chiffre"><b>{euros(b["prix_m2_median_local"])}</b><span>Prix au m² médian local des mêmes biens</span></div>
-</div>""", unsafe_allow_html=True)
-        droite.markdown(liste_filets([
-            ("Le constat", "Les pires erreurs concernaient des logements vendus à une fraction du prix du quartier, "
-                           f"alors que le modèle prédisait un prix normal.{immeuble}"),
-            ("L'explication", "Ce sont des ventes hors marché : viagers (seul le bouquet est déclaré), ventes "
-                              "partielles (nue-propriété, quote-part), ventes entre proches, ventes en bloc. Le prix "
-                              "déclaré ne dit pas ce que vaut le logement."),
-            ("La règle", f"Retirer une vente si son prix au m² est inférieur à {b['seuil'] * 100:.0f}\u202f% de la "
-                         "médiane de son code postal, de son type de bien et de son année. Une règle métier fixée à "
-                         "l'avance et appliquée à toutes les années, et non la suppression des pires prédictions, "
-                         "qui fausserait l'évaluation."),
-            ("Ce qu'elle change", f"La règle est appliquée au modèle actuel. Sur les ventes de 2024 nettoyées, un "
-                                  f"modèle appris sans ces ventes se trompe en moyenne de {euros(sans)}, contre "
-                                  f"{euros(avec)} pour un modèle appris avec : les retirer "
-                                  f"{'n’améliore pas' if sans >= avec else 'améliore à peine'} l'apprentissage. "
-                                  "La règle compte surtout pour l'évaluation : les scores ne sont plus calculés sur "
-                                  "des prix qui ne disent rien de la valeur d'un logement."),
-        ]), unsafe_allow_html=True)
+<p class="texte-section">En regardant les plus grosses erreurs du modèle, j'ai trouvé des logements vendus autour de
+{euros(b["prix_m2_median_retirees"])} le m² (médiane), alors que des biens du même type se vendaient environ
+{euros(b["prix_m2_median_local"])} le m² dans le même secteur.{immeuble} Ce sont surtout des viagers (seul le
+bouquet est déclaré), des ventes partielles comme la nue-propriété, ou des ventes entre proches. Le prix déclaré ne
+correspond pas à la valeur du logement.</p>
+<p class="texte-section">J'ai donc ajouté une règle au nettoyage : une vente est retirée si son prix au m² est
+inférieur à {b["seuil"] * 100:.0f}\u202f% de la médiane de son code postal, de son type de bien et de son année.
+Elle retire {nombre(b["ventes_retirees"])} ventes sur {nombre(b["ventes_avant"])}. La règle est fixée à l'avance et
+s'applique à toutes les années : je n'ai pas retiré les ventes en fonction des erreurs du modèle, ce qui aurait faussé
+l'évaluation.</p>
+<p class="texte-section">Sur les ventes de 2024, apprendre sans ces ventes {effet} à l'erreur moyenne
+({euros(sans)}, contre {euros(avec)} avec elles). La règle sert surtout à mesurer l'erreur sur de vrais prix de
+marché.</p>""", unsafe_allow_html=True)
 
 
 def section_batiment():
-    """05 — ce qu'apportent l'année de construction et le DPE, mesuré sur la validation 2024."""
+    """Ce qu'apportent l'année de construction et le DPE, mesuré sur la validation 2024."""
     _, comparaison, correspondance = rapports_batiment()
     toutes = correspondance.loc["Toutes"]
     premiere = str(ANNEES_TRAIN[0])  # l'index mêle années et « Toutes » : il est lu en texte
@@ -807,23 +776,20 @@ def section_batiment():
                                                  "Prix à ±10\u202f%"])
     with st.container(key="section-modele-batiment"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
-            "05 — Le bâtiment", "Année et DPE",
-            "Chaque vente est reliée à son bâtiment (BDNB) : son année de construction, et la classe DPE médiane "
-            "des logements de l'immeuble, calculée avec les seuls DPE établis avant la vente (ADEME). Mêmes "
-            "réglages, même validation 2024, moyenne de 5 entraînements.",
-        ), unsafe_allow_html=True)
+        gauche.markdown(entete("L'année de construction et le DPE"), unsafe_allow_html=True)
         droite.markdown(f"""
-<div class="chiffres">
-  <div class="chiffre"><b>{nombre(toutes["ventes"] * (1 - toutes["sans_batiment"]))}</b><span>Ventes reliées à leur bâtiment, sur {nombre(toutes["ventes"])}</span></div>
-  <div class="chiffre"><b>{pourcent(100 * toutes["avec_annee"])}</b><span>Avec une année de construction</span></div>
-  <div class="chiffre"><b>{pourcent(100 * toutes["avec_dpe"])}</b><span>Avec un DPE connu avant la vente</span></div>
-</div>
+<p class="texte-section">Chaque vente est reliée à son bâtiment dans la BDNB, ce qui donne l'année de construction et
+la classe DPE médiane des logements de l'immeuble. Seuls les DPE établis avant la vente sont pris en compte (données
+ADEME). {nombre(toutes["ventes"] * (1 - toutes["sans_batiment"]))} ventes sur {nombre(toutes["ventes"])} ont été
+reliées à un bâtiment, {pourcent(100 * toutes["avec_annee"])} ont une année de construction et
+{pourcent(100 * toutes["avec_dpe"])} un DPE.</p>
+<p class="texte-section">Le tableau compare le modèle avec et sans ces deux variables sur les ventes de 2024 (mêmes
+réglages, moyenne de 5 entraînements).</p>
 <div class="tableau-defilant"><table class="tableau"><thead><tr><th></th>{entetes}</tr></thead>
 <tbody>{lignes}</tbody></table></div>
-<p class="note">Un gain modeste : l'erreur moyenne en euros baisse, l'erreur médiane et la part à ±10\u202f% bougent
-à peine, l'erreur moyenne en pourcentage augmente un peu. Les DPE ne commencent qu'en juillet 2021 : les ventes de
-{premiere} en ont rarement un ({pourcent(100 * correspondance.loc[premiere, "avec_dpe"])}).</p>""",
+<p class="note">Le gain est faible : l'erreur moyenne en euros baisse un peu, l'erreur moyenne en pourcentage monte
+un peu. Les DPE n'existent dans ces données que depuis juillet 2021, donc seulement
+{pourcent(100 * correspondance.loc[premiere, "avec_dpe"])} des ventes de {premiere} en ont un.</p>""",
                         unsafe_allow_html=True)
 
 
@@ -836,24 +802,22 @@ def onglet_modele():
     with st.container(key="section-modele-resultats"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "01 — Évaluation", "Testé sur 2025",
-            "Le modèle a appris sur les ventes de 2021 à 2024, puis a été évalué sur celles de 2025, qu'il "
-            "n'avait jamais vues. Point de comparaison : le prix au m² médian du code postal et du type de bien.",
+            "Résultats sur 2025",
+            "Le modèle a appris sur les ventes de 2021 à 2024, puis a été testé une seule fois sur celles de 2025, "
+            "qu'il n'avait jamais vues.",
         ), unsafe_allow_html=True)
         with droite:
             st.markdown(f"""
-<div class="chiffres">
-  <div class="chiffre"><b>{euros(final["MAE (€)"])}</b><span>Erreur moyenne par logement</span></div>
-  <div class="chiffre"><b>−{gain * 100:.0f}\u202f%</b><span>D'erreur par rapport au point de comparaison</span></div>
-  <div class="chiffre"><b>{pourcent(final["Couverture fourchette (%)"])}</b><span>Des vrais prix dans la fourchette</span></div>
-</div>""", unsafe_allow_html=True)
+<p class="texte-section">Pour avoir un point de comparaison, j'ai aussi estimé chaque vente avec le prix au m² médian
+de son code postal et de son type de bien. Le modèle se trompe en moyenne de {euros(final["MAE (€)"])} par logement,
+soit {gain * 100:.0f}\u202f% de moins que cette méthode simple.</p>""", unsafe_allow_html=True)
             st.altair_chart(graphique_comparaison(resultats), width="stretch")
             colonnes = ["Erreur moyenne", "Erreur moyenne (%)", "Erreur médiane", "Prix à ±10\u202f%", "Dans la fourchette"]
             lignes = ""
             for nom, ligne in [("Point de comparaison", baseline), ("Modèle final (LightGBM)", final)]:
                 couverture = ligne["Couverture fourchette (%)"]
                 valeurs = [euros(ligne["MAE (€)"]), pourcent(ligne["MAPE (%)"]), pourcent(ligne["Erreur médiane (%)"]),
-                           pourcent(ligne["Part à ±10 % (%)"]), "—" if pd.isna(couverture) else pourcent(couverture)]
+                           pourcent(ligne["Part à ±10 % (%)"]), "aucune" if pd.isna(couverture) else pourcent(couverture)]
                 lignes += f"<tr><th>{nom}</th>" + "".join(f"<td>{v}</td>" for v in valeurs) + "</tr>"
             entetes = "".join(f"<th>{c}</th>" for c in colonnes)
             st.markdown(
@@ -865,9 +829,9 @@ def onglet_modele():
     with st.container(key="section-ombre-modele-variables"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "02 — Variables", "Ce qui fait le prix",
-            "Part de chaque variable dans les améliorations apportées par les arbres du modèle (importance "
-            "« gain » de LightGBM). Latitude et longitude sont réunies dans « Emplacement dans la ville ».",
+            "Ce qui compte le plus",
+            "Part de chaque variable dans l'importance « gain » de LightGBM. Latitude et longitude sont "
+            "regroupées dans « Emplacement dans la ville ».",
         ), unsafe_allow_html=True)
         importance = importance_variables(charger_estimateur().modele).rename(index=NOMS).head(10)
         droite.altair_chart(graphique_importance(importance), width="stretch")
@@ -878,15 +842,14 @@ def onglet_modele():
 
     with st.container(key="section-ombre-modele-limites"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("06 — Limites", "Ce qu'il ignore"), unsafe_allow_html=True)
+        gauche.markdown(entete("Limites"), unsafe_allow_html=True)
         droite.markdown(liste_filets([
-            ("L'état du bien", "Ni l'étage, ni la vue, ni les travaux. Le DPE utilisé est la classe médiane "
-                               "du bâtiment, pas celle du logement."),
-            ("Le territoire", "La seule commune de Montpellier."),
-            ("Les annexes", "Les prix incluent les caves et parkings vendus avec le logement."),
-            ("Le temps", "Appris sur 2021–2024 : un changement récent du marché peut le décaler."),
-            ("La fourchette", f"Elle vise 8 vrais prix sur 10 ; sur 2025, elle en contient "
-                              f"{pourcent(chiffres['couverture'])}. Elle est un peu trop étroite."),
+            "Le DPE utilisé est la classe médiane du bâtiment, pas celle du logement.",
+            "Le modèle ne couvre que la commune de Montpellier.",
+            "Les prix de vente incluent les caves et parkings vendus avec le logement.",
+            f"Il a appris sur {ANNEES_TRAIN[0]}–{ANNEE_VALIDATION} : un changement récent du marché peut le décaler.",
+            f"La fourchette devrait contenir 8 vrais prix sur 10. Sur 2025, elle en contient "
+            f"{pourcent(chiffres['couverture'])} : elle est un peu trop étroite.",
         ]), unsafe_allow_html=True)
 
 
@@ -897,106 +860,93 @@ def entonnoir():
 
 
 def section_parcours(tableau):
-    """02 — le parcours des données, du téléchargement à cette page."""
+    """Le parcours des données, du téléchargement à cette page."""
     modele = tableau.loc[tableau["appliquee"], "lignes"].iloc[-1]
     etapes = [
         {"titre": "Collecte", "texte": f"Ventes DVF {annees.min()}–{annees.max()} et lieux OpenStreetMap.",
          "script": "src/ingest.py", "sortie": "data/raw/"},
-        {"titre": "Nettoyage", "texte": f"Une ligne = la vente d'un seul logement : {nombre(modele)} ventes.",
+        {"titre": "Nettoyage", "texte": f"Une ligne par vente d'un seul logement, soit {nombre(modele)} ventes.",
          "script": "src/clean.py", "sortie": "ventes_clean.parquet"},
-        {"titre": "Variables", "texte": f"{len(VARIABLES)} variables : surface, pièces, emplacement, distances "
-                                        "et densités de lieux.",
+        {"titre": "Variables", "texte": f"{len(VARIABLES)} variables : surface, pièces, emplacement, lieux "
+                                        "proches, année de construction et DPE du bâtiment.",
          "script": "src/features.py", "sortie": "ventes_features.parquet"},
-        {"titre": "Modèles", "texte": f"Appris sur {ANNEES_TRAIN[0]}–{ANNEE_VALIDATION}, testé une seule fois "
-                                      f"sur {ANNEE_TEST}.",
-         "script": "src/train.py · tune.py · final.py", "sortie": "models/ et reports/"},
-        {"titre": "Application", "texte": "Géocodage IGN, estimation, explication SHAP et comparables.",
+        {"titre": "Modèles", "texte": f"Régression linéaire, forêt aléatoire et LightGBM comparés sur "
+                                      f"{ANNEE_VALIDATION}. LightGBM, réglé avec Optuna, est testé une fois sur "
+                                      f"{ANNEE_TEST}.",
+         "script": "src/train.py, tune.py, final.py", "sortie": "models/ et reports/"},
+        {"titre": "Application", "texte": "Géocodage de l'adresse, estimation et explication avec SHAP.",
          "script": "app/streamlit_app.py", "sortie": "cette page"},
     ]
     with st.container(key="section-ombre-a-propos-parcours"):
         st.markdown(entete(
-            "02 — Parcours", "Le chemin des données",
-            "Chaque étape est un script qui lit le fichier de la précédente et écrit le sien.",
+            "Comment le projet est construit",
+            "Chaque étape est un script qui lit le fichier de l'étape précédente et écrit le sien.",
         ), unsafe_allow_html=True)
         st.markdown(schema_parcours(etapes), unsafe_allow_html=True)
 
 
 def section_entonnoir(tableau):
-    """03 — combien de lignes restent après chaque étape du nettoyage."""
+    """Combien de lignes restent après chaque étape du nettoyage."""
     appliquees = tableau[tableau["appliquee"]]
     regle = tableau[~tableau["appliquee"]]
     pointille = (
-        f" En pointillé, la règle des ventes hors marché (−{nombre(regle['retirees'].iloc[0])}) : écrite dans "
-        "le nettoyage, pas encore appliquée aux données du modèle (voir l'onglet «\u00a0Le modèle\u00a0»)."
+        f" En pointillé, la règle des ventes hors marché (−{nombre(regle['retirees'].iloc[0])}), pas encore "
+        "appliquée aux données du modèle."
         if len(regle) else ""
     )
     with st.container(key="section-a-propos-entonnoir"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "03 — Nettoyage",
             f"De {nombre(appliquees['lignes'].iloc[0])} lignes à {nombre(appliquees['lignes'].iloc[-1])} ventes",
-            "Une vente DVF occupe souvent plusieurs lignes (une par lot : logement, cave, parking). Chaque étape "
-            "indique ce qui reste, et ce qu'elle a retiré." + pointille,
+            "Une vente DVF occupe souvent plusieurs lignes, une par lot (logement, cave, parking). Le graphique "
+            "montre ce qui reste après chaque étape du nettoyage et ce qu'elle retire." + pointille,
         ), unsafe_allow_html=True)
         droite.altair_chart(graphique_entonnoir(tableau), width="stretch")
 
 
 def onglet_a_propos():
-    """Démarche, parcours des données, entonnoir du nettoyage et sources."""
-    with st.container(key="section-a-propos-demarche"):
-        gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
-            "01 — Démarche", "Cinq étapes",
-            "Un projet de data science mené de la donnée brute à l'application.",
-        ), unsafe_allow_html=True)
-        droite.markdown(liste_filets([
-            ("Collecte", "Toutes les ventes de logements de Montpellier publiées dans DVF."),
-            ("Nettoyage", f"Ventes d'un seul logement, sans prix aberrants : {nb_ventes} ventes conservées."),
-            ("Variables", "Surface, pièces, type de bien, et l'environnement du logement calculé avec "
-                          "OpenStreetMap : centre, tram, écoles, parcs, commerces, restaurants."),
-            ("Modèles", "Une référence simple, une régression linéaire, une forêt aléatoire et LightGBM, "
-                        "réglé avec Optuna. Deux modèles quantiles donnent la fourchette."),
-            ("Explicabilité", "Les valeurs SHAP montrent ce qui fait monter ou baisser chaque estimation."),
-        ]), unsafe_allow_html=True)
-
+    """Parcours des données, entonnoir du nettoyage et sources."""
     tableau = entonnoir()
     section_parcours(tableau)
     section_entonnoir(tableau)
 
     with st.container(key="section-ombre-a-propos-sources"):
         gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete("04 — Sources", "Les données"), unsafe_allow_html=True)
+        gauche.markdown(entete("Sources"), unsafe_allow_html=True)
         droite.markdown(liste_filets([
             ('<a href="https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/">'
-             "Demandes de valeurs foncières</a>", "data.gouv.fr — les ventes immobilières."),
+             "Demandes de valeurs foncières (DVF)</a>", "Les ventes immobilières, publiées sur data.gouv.fr."),
             ('<a href="https://www.openstreetmap.org">OpenStreetMap</a>',
-             "Tram, écoles, parcs, commerces et restaurants."),
+             "Arrêts de tram, écoles, parcs, commerces et restaurants."),
+            ('<a href="https://bdnb.io">Base de données nationale des bâtiments (BDNB)</a>',
+             "L'année de construction et le lien entre ventes, bâtiments et DPE."),
+            ('<a href="https://data.ademe.fr/datasets/dpe03existant">DPE des logements existants (ADEME)</a>',
+             "Les diagnostics de performance énergétique depuis juillet 2021."),
             ('<a href="https://geoservices.ign.fr/documentation/services/services-geoplateforme/geocodage">'
-             "Géocodage de l'IGN</a>", "Suggestions d'adresses et coordonnées."),
+             "Géocodage de l'IGN</a>", "Les suggestions d'adresses et leurs coordonnées."),
         ]), unsafe_allow_html=True)
 
 
 def liens_auteur():
     """Liens GitHub et LinkedIn, en ignorant ceux qui ne sont pas encore renseignés."""
     liens = {"GitHub": LIEN_GITHUB, "LinkedIn": LIEN_LINKEDIN}
-    return " · ".join(f'<a href="{escape(url)}">{nom}</a>' for nom, url in liens.items() if url)
+    return ", ".join(f'<a href="{escape(url)}">{nom}</a>' for nom, url in liens.items() if url)
 
 
 def pied_de_page():
-    """Bande noire de fin de page : signature, sources, liens."""
+    """Bande noire de fin de page : titre, sources, liens."""
     liens = liens_auteur() or "Liens à venir"
     with st.container(key="pied"):
         st.markdown(f"""
 <div class="pied-grille">
   <p class="pied-titre">Ce que vaut un logement <em>à Montpellier.</em></p>
-  <div><span class="etiquette">Données</span><p>DVF {annees.min()}–{annees.max()} · OpenStreetMap · IGN</p></div>
+  <div><span class="etiquette">Données</span><p>DVF {annees.min()}–{annees.max()}, OpenStreetMap, BDNB, ADEME, IGN</p></div>
   <div><span class="etiquette">Auteur</span><p>{liens}</p></div>
 </div>
-<p class="pied-mention">Estimation indicative, établie par un modèle statistique. Elle ne remplace pas l'avis d'un professionnel.</p>
 """, unsafe_allow_html=True)
 
 
-# les onglets tout en haut ; l'ouverture (titre, adresse, chiffres clés) appartient à l'onglet Estimer
+# l'ouverture (titre, adresse, chiffres clés) n'apparaît que dans l'onglet Estimer
 estimer, explorer, comparer, modele, a_propos = st.tabs(
     ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
 )
