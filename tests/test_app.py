@@ -173,3 +173,29 @@ def test_estimation_pre_remplit_annee_et_dpe_et_simule_le_dpe(monkeypatch):
     # simulateur : passer le bâtiment en classe A recalcule le prix sans erreur
     app.select_slider(key="sim_dpe").set_value("A").run()
     assert not app.exception and app.select_slider(key="sim_dpe").value == "A"
+
+
+@pytest.mark.parametrize("demande, verdict", [
+    (None, None), (50_000, "En dessous du marché"), (10_000_000, "Nettement au-dessus"),
+])
+def test_bonne_affaire_apres_estimation(monkeypatch, demande, verdict):
+    adresse = "10 Rue de la Loge 34000 Montpellier"
+    reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
+    monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (43.6110, 3.8790, adresse))
+
+    app = lancer_app()
+    next(b for b in app.button if b.label == "Écusson").click().run()
+    next(b for b in app.button if b.label == "Estimer le prix").click().run()
+    champ = app.number_input(key="prix_demande")
+    assert champ.value is None and "affaire" not in app.session_state
+    if demande is None:
+        return
+    champ.set_value(demande).run()
+    assert not app.exception
+    html = "".join(m.value for m in app.markdown)
+    analyse = app.session_state["affaire"]
+    # verdict ferme, ou sa version prudente si la confiance est faible
+    assert analyse["verdict"] in html and verdict.split()[0].lower() in analyse["verdict"].lower()
+    assert 'class="jauge-affaire"' in html and "pas une expertise" in html
+    assert analyse["nb_comparables"] == 10 and 0 <= analyse["moins_chers"] <= 10

@@ -135,3 +135,12 @@ def test_schema_parcours_une_case_par_etape_et_texte_protege():
               {"titre": "App", "texte": "Streamlit", "script": "app/streamlit_app.py", "sortie": "le site"}]
     html = schema_parcours(etapes)
     assert html.count("<li>") == 2 and "<b>DVF</b>" not in html and "src/ingest.py" in html
+
+
+def test_jauge_affaire_place_les_trois_reperes():
+    from affichage import jauge_affaire, positions_jauge
+    p = positions_jauge(250_000, 200_000, 300_000, 400_000)
+    gauche, largeur = p["fourchette"]
+    assert 0 < gauche < p["estimation"] < gauche + largeur < p["demande"] < 100
+    jauge = jauge_affaire(250_000, 200_000, 300_000, 400_000, euros)
+    assert "Prix demandé : 400000 €" in jauge and jauge.count("<li>") == 3

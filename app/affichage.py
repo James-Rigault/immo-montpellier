@@ -380,3 +380,37 @@ def schema_parcours(etapes):
         for i, e in enumerate(etapes, start=1)
     )
     return f'<ol class="parcours">{cases}</ol>'
+
+
+# ---------- Bonne affaire ? ----------
+
+def positions_jauge(prix, prix_bas, prix_haut, prix_demande, marge=0.08):
+    """Place (en % de la largeur) de la fourchette, de l'estimation et du prix demandé sur une même échelle."""
+    bas, haut = min(prix_bas, prix_demande), max(prix_haut, prix_demande)
+    bas, haut = bas - marge * (haut - bas), haut + marge * (haut - bas)  # un peu d'air aux deux bouts
+    place = lambda x: 100 * (x - bas) / (haut - bas)  # noqa: E731
+    return {
+        "fourchette": (place(prix_bas), place(prix_haut) - place(prix_bas)),
+        "estimation": place(prix),
+        "demande": place(prix_demande),
+    }
+
+
+def jauge_affaire(prix, prix_bas, prix_haut, prix_demande, euros):
+    """Un filet gradué : la fourchette en aplat, l'estimation en trait d'accent, le prix demandé en point encre."""
+    p = positions_jauge(prix, prix_bas, prix_haut, prix_demande)
+    gauche, largeur = p["fourchette"]
+    return f"""
+<div class="jauge-affaire">
+  <div class="jauge-piste">
+    <span class="jauge-fourchette" style="left: {gauche:.1f}%; width: {largeur:.1f}%"></span>
+    <span class="jauge-estimation" style="left: {p["estimation"]:.1f}%"></span>
+    <span class="jauge-demande" style="left: {p["demande"]:.1f}%"></span>
+  </div>
+  <ul class="jauge-legende">
+    <li><i class="legende-fourchette"></i>Fourchette : {euros(prix_bas)} – {euros(prix_haut)}</li>
+    <li><i class="legende-estimation"></i>Estimation : {euros(prix)}</li>
+    <li><i class="legende-demande"></i>Prix demandé : {euros(prix_demande)}</li>
+  </ul>
+</div>
+"""

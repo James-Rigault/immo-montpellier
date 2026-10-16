@@ -26,6 +26,7 @@ FONCTIONNALITÉS
 - Indicateur de confiance : élevée, moyenne ou faible, selon le nombre de ventes similaires à proximité, la largeur de la fourchette et le caractère inhabituel de la surface.
 - Ventes comparables : une carte et un tableau des ventes réelles les plus proches, de même type et de surface proche, reliés par des numéros.
 - Année de construction et DPE : pré-remplis à partir du bâtiment de l'adresse (BDNB et ADEME), modifiables (DPE de A à G, ou « Inconnu »), et visibles dans l'explication SHAP.
+- « Bonne affaire ? » : on saisit le prix d'une annonce ; l'application donne l'écart à l'estimation (en € et en %), sa place par rapport à la fourchette, un verdict (en dessous du marché, dans la fourchette, au-dessus, nettement au-dessus au-delà d'une demi-largeur de fourchette, seuil défini dans src/affaire.py), une jauge, et la position du prix au m² parmi les 10 ventes comparables. Si la confiance est faible, le verdict est formulé avec prudence.
 - Simulateur « Et si… ? » : modifier la surface, le nombre de pièces, les dépendances ou la classe DPE et voir le prix évoluer, avec une courbe du prix selon la surface.
 
 
@@ -84,6 +85,7 @@ STRUCTURE DU PROJET
 - src/final.py : modèle final et test sur 2025
 - src/batiments.py : récupération BDNB et DPE, correspondance vente → bâtiment, année et DPE sans fuite de données
 - src/comparer_variables.py : comparaison sans / avec année et DPE sur la validation 2024
+- src/affaire.py : verdict « Bonne affaire ? » et position parmi les ventes comparables
 - src/predict.py : géocodage, estimation, explication, comparables, bâtiment de l'adresse
 - src/marche.py : agrégations de l'onglet « Explorer le marché » (carte en hexagones, évolution, pièces)
 - src/erreurs.py : erreurs sur 2025 par groupe

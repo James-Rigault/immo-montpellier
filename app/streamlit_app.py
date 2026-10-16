@@ -13,12 +13,13 @@ from pydeck.types import String
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from batiments import CLASSES_DPE, code_dpe, lettre_dpe  # noqa: E402
+from affaire import analyser_prix, position_comparables  # noqa: E402
 from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
 from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
 from train import ANNEE_TEST, ANNEE_VALIDATION, ANNEES_TRAIN, VARIABLES  # noqa: E402
 from predict import AdresseIntrouvable, Estimateur, geocoder_complet, niveau_confiance, suggestions  # noqa: E402
 from affichage import (  # noqa: E402
-    badge_confiance, bornes_classes, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
+    badge_confiance, bornes_classes, jauge_affaire, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
     graphique_courbe,
     graphique_entonnoir, graphique_erreurs, graphique_evolution, graphique_facteurs, graphique_importance, graphique_pieces, importance_variables,
     legende_carte, regrouper_facteurs, schema_parcours,
@@ -250,17 +251,21 @@ def section_bien(adresse):
         "dependances": dependances, "terrain": terrain, "annee": annee, "dpe": dpe,
     }
     # nouvelle estimation : les curseurs du simulateur repartent des valeurs saisies
-    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep", "sim_dpe"]:
+    for cle in ["sim_type", "sim_surface", "sim_pieces", "sim_dep", "sim_dpe", "prix_demande", "affaire"]:
         st.session_state.pop(cle, None)
 
 
-def section_resultat(r, bien):
-    """Le prix, sa fourchette et la confiance, sur fond alterné."""
+def confiance(r, bien):
+    """Niveau de confiance de l'estimation (élevée, moyenne, faible) et ses raisons."""
     estimateur = charger_estimateur()
     nb_voisins = estimateur.compter_voisins(r["latitude"], r["longitude"], bien["type_local"], bien["surface"])
     largeur = (r["prix_haut"] - r["prix_bas"]) / r["prix"]
     atypique = estimateur.surface_atypique(bien["type_local"], bien["surface"])
-    niveau, raisons = niveau_confiance(nb_voisins, largeur, atypique)
+    return niveau_confiance(nb_voisins, largeur, atypique)
+
+
+def section_resultat(r, bien, niveau, raisons):
+    """Le prix, sa fourchette et la confiance, sur fond alterné."""
 
     with st.container(key="section-ombre-resultat"):
         gauche, droite = st.columns([7, 4], gap="large", vertical_alignment="bottom")
@@ -276,12 +281,55 @@ def section_resultat(r, bien):
         )
 
 
-def section_pourquoi(r):
-    """02 — l'explication SHAP du prix."""
-    with st.container(key="section-pourquoi"):
+def section_affaire(r, bien, niveau):
+    """« Bonne affaire ? » : le prix demandé face à l'estimation, à la fourchette et aux ventes comparables."""
+    with st.container(key="section-affaire"):
         gauche, droite = st.columns([4, 8], gap="large")
         gauche.markdown(entete(
-            "02 — Lecture", "Pourquoi ce prix",
+            "02 — Bonne affaire ?", "Le prix demandé",
+            "Saisissez le prix d'une annonce : il est comparé à l'estimation, à sa fourchette et aux ventes "
+            "comparables du quartier.",
+        ), unsafe_allow_html=True)
+        with droite:
+            demande = st.number_input("Prix demandé (€)", min_value=1_000, max_value=10_000_000, value=None,
+                                      step=1_000, placeholder="Facultatif", key="prix_demande")
+            if demande is None:
+                st.session_state.pop("affaire", None)
+                return
+            analyse = analyser_prix(demande, r["prix"], r["prix_bas"], r["prix_haut"], niveau)
+            comparables = charger_estimateur().comparables(
+                r["latitude"], r["longitude"], bien["type_local"], bien["surface"], n=10)
+            moins_chers, total = position_comparables(demande / bien["surface"], comparables["prix_m2"])
+            analyse.update(prix_demande=demande, moins_chers=moins_chers, nb_comparables=total)
+            st.session_state["affaire"] = analyse  # repris dans le rapport PDF
+
+            sens = "au-dessus" if analyse["ecart"] > 0 else "en dessous"
+            st.markdown(f"""
+<span class="etiquette">Verdict</span>
+<p class="verdict">{analyse["verdict"]}</p>
+<div class="chiffres">
+  <div class="chiffre"><b>{signe(analyse["ecart"], euros(abs(analyse["ecart"])))}</b><span>Écart à l'estimation</span></div>
+  <div class="chiffre"><b>{signe(analyse["ecart_pct"], pourcent(abs(analyse["ecart_pct"])))}</b><span>{sens.capitalize()} de l'estimation</span></div>
+  <div class="chiffre"><b>{moins_chers} sur {total}</b><span>Ventes comparables moins chères au m² ({euros(demande / bien["surface"])} le m² demandé)</span></div>
+</div>""", unsafe_allow_html=True)
+            st.markdown(jauge_affaire(r["prix"], r["prix_bas"], r["prix_haut"], demande, euros),
+                        unsafe_allow_html=True)
+            if analyse["prudent"]:
+                st.warning("Confiance faible : peu de ventes comparables ou fourchette large. Ce verdict est une "
+                           "indication, à vérifier avec d'autres références.")
+            st.markdown(
+                '<p class="note">Estimation statistique, pas une expertise : l\'état du logement, l\'étage, la vue, '
+                "l'exposition ou les travaux à prévoir ne sont pas pris en compte et peuvent justifier un écart.</p>",
+                unsafe_allow_html=True,
+            )
+
+
+def section_pourquoi(r):
+    """03 — l'explication SHAP du prix."""
+    with st.container(key="section-ombre-pourquoi"):
+        gauche, droite = st.columns([4, 8], gap="large")
+        gauche.markdown(entete(
+            "03 — Lecture", "Pourquoi ce prix",
             f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface. Chaque caractéristique "
             "l'augmente (en noir) ou le diminue (en gris). Méthode : valeurs SHAP.",
         ), unsafe_allow_html=True)
@@ -290,7 +338,7 @@ def section_pourquoi(r):
 
 
 def section_comparables(r):
-    """03 — carte et tableau des ventes comparables, numérotées."""
+    """04 — carte et tableau des ventes comparables, numérotées."""
     comp = r["comparables"].reset_index(drop=True)
     numero_rue = comp["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
     comp["adresse"] = (numero_rue + " " + comp["adresse_nom_voie"].str.title()).str.strip()
@@ -341,9 +389,9 @@ def section_comparables(r):
         "Distance (m)": comp["distance_m"].round(),
     })
 
-    with st.container(key="section-ombre-comparables"):
+    with st.container(key="section-comparables"):
         st.markdown(entete(
-            "03 — Références", "Ventes comparables",
+            "04 — Références", "Ventes comparables",
             "Les ventes de même type et de surface proche les plus près de l'adresse. "
             "En vert, le bien estimé ; en noir, les ventes numérotées du tableau.",
         ), unsafe_allow_html=True)
@@ -355,13 +403,13 @@ def section_comparables(r):
 
 
 def section_simulateur(r, bien):
-    """04 — « Et si » : on change les caractéristiques, au même emplacement."""
+    """05 — « Et si » : on change les caractéristiques, au même emplacement."""
     estimateur = charger_estimateur()
-    with st.container(key="section-simulateur"):
+    with st.container(key="section-ombre-simulateur"):
         gauche, droite = st.columns([4, 8], gap="large")
         with gauche:
             st.markdown(entete(
-                "04 — Simulation", "Et si…",
+                "05 — Simulation", "Et si…",
                 "Modifiez les caractéristiques : le prix est recalculé au même emplacement. Le DPE est celui "
                 "du bâtiment (le modèle a appris la classe médiane des logements de l'immeuble) : passer de F "
                 "à C donne un ordre de grandeur, pas la valeur de travaux.",
@@ -410,7 +458,9 @@ def onglet_estimer(adresse):
     if "resultat" not in st.session_state:
         return
     r, bien = st.session_state["resultat"], st.session_state["bien"]
-    section_resultat(r, bien)
+    niveau, raisons = confiance(r, bien)
+    section_resultat(r, bien, niveau, raisons)
+    section_affaire(r, bien, niveau)
     section_pourquoi(r)
     section_comparables(r)
     section_simulateur(r, bien)
