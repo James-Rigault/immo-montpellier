@@ -281,3 +281,17 @@ def test_modules_du_projet_recharges_apres_une_mise_a_jour():
     finally:
         if not hasattr(marche, "quartiers"):
             marche.quartiers = quartiers
+
+
+def test_icone_de_l_onglet_est_le_logo():
+    from PIL import Image
+    logo = RACINE / "assets" / "logo.png"
+    image = Image.open(logo)
+    assert image.size == (256, 256) and image.mode == "RGBA"
+    assert image.getpixel((0, 0))[3] == 0  # coin transparent autour du carré arrondi
+    assert image.getpixel((128, 4))[:3] == (0x2A, 0x3D, 0x2F)  # le vert du logo
+    source = (RACINE / "app" / "streamlit_app.py").read_text()
+    assert 'page_icon=str(LOGO_PNG)' in source and 'LOGO_PNG = ASSETS / "logo.png"' in source
+    # set_page_config est le premier appel Streamlit du script
+    lignes = [l for l in source.split("\n") if "st." in l and not l.strip().startswith(("#", "import", "from"))]
+    assert "st.set_page_config" in lignes[0]

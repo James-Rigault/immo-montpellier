@@ -55,6 +55,7 @@ LIEN_METHODE = f"{LIEN_GITHUB}#démarche"
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 LOGO = ASSETS / "logo.svg"
+LOGO_PNG = ASSETS / "logo.png"  # icône de l'onglet : rendu PNG du SVG, plus sûr que le SVG pour les navigateurs
 LOGO_URI = "data:image/svg+xml;base64," + base64.b64encode(LOGO.read_bytes()).decode()
 
 RESULTATS_2025 = Path(__file__).resolve().parents[1] / "reports" / "resultats_test_2025.csv"
@@ -91,7 +92,8 @@ def noms_facteurs(r):
     """Noms lisibles des facteurs SHAP ; la classe DPE, reprise du bâtiment, est précisée entre parenthèses."""
     return {**NOMS, "dpe_classe": f"Classe DPE du bâtiment ({lettre_dpe(r.get('dpe_classe')) or 'inconnue'})"}
 
-st.set_page_config(page_title="Estimation immobilière à Montpellier", page_icon=str(LOGO), layout="wide")
+# premier appel Streamlit du script ; chemin absolu (ASSETS part de __file__) : il marche aussi en ligne
+st.set_page_config(page_title="Estimation immobilière à Montpellier", page_icon=str(LOGO_PNG), layout="wide")
 
 
 # empreinte du code de l'estimateur : si une mise à jour le modifie, l'estimateur gardé en cache est rechargé
