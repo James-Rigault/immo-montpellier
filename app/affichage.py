@@ -414,3 +414,11 @@ def jauge_affaire(prix, prix_bas, prix_haut, prix_demande, euros):
   </ul>
 </div>
 """
+
+
+# ---------- Ventes comparables ----------
+
+def adresses_comparables(comparables):
+    """« 12 Rue De La Loge » pour chaque vente comparable (sans numéro s'il est inconnu)."""
+    numero = comparables["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
+    return (numero + " " + comparables["adresse_nom_voie"].str.title()).str.strip()

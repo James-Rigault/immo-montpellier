@@ -12,3 +12,5 @@ joblib
 optuna
 shap
 streamlit
+fpdf2
+pypdf

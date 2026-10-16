@@ -15,7 +15,7 @@ Données : 23 338 ventes immobilières réelles à Montpellier (DVF, 2021-2025),
 Modèle : LightGBM optimisé avec Optuna, avec une validation temporelle.
 Résultat sur 2025 (ventes jamais vues par le modèle) : erreur médiane de 10,5 %, et 48 % des estimations à moins de 10 % du vrai prix.
 Fourchette de prix : environ 7 vrais prix sur 10 tombent dans la fourchette proposée.
-Outils : Python, pandas, GeoPandas, scikit-learn, LightGBM, Optuna, SHAP, Streamlit, pytest.
+Outils : Python, pandas, GeoPandas, scikit-learn, LightGBM, Optuna, SHAP, Streamlit, fpdf2, pytest.
 
 
 FONCTIONNALITÉS
@@ -27,6 +27,7 @@ FONCTIONNALITÉS
 - Ventes comparables : une carte et un tableau des ventes réelles les plus proches, de même type et de surface proche, reliés par des numéros.
 - Année de construction et DPE : pré-remplis à partir du bâtiment de l'adresse (BDNB et ADEME), modifiables (DPE de A à G, ou « Inconnu »), et visibles dans l'explication SHAP.
 - « Bonne affaire ? » : on saisit le prix d'une annonce ; l'application donne l'écart à l'estimation (en € et en %), sa place par rapport à la fourchette, un verdict (en dessous du marché, dans la fourchette, au-dessus, nettement au-dessus au-delà d'une demi-largeur de fourchette, seuil défini dans src/affaire.py), une jauge, et la position du prix au m² parmi les 10 ventes comparables. Si la confiance est faible, le verdict est formulé avec prudence.
+- Rapport PDF : un bouton « Télécharger le rapport (PDF) » produit en mémoire un rapport de 2 pages (adresse, caractéristiques dont année et DPE, prix, fourchette, confiance, facteurs SHAP, ventes comparables, verdict « Bonne affaire ? » s'il y a un prix demandé, méthode et limites), avec fpdf2 et les polices de l'application.
 - Simulateur « Et si… ? » : modifier la surface, le nombre de pièces, les dépendances ou la classe DPE et voir le prix évoluer, avec une courbe du prix selon la surface.
 
 
@@ -77,6 +78,8 @@ STRUCTURE DU PROJET
 
 - app/streamlit_app.py : l'application
 - app/requirements.txt : les dépendances (versions figées) pour le déploiement
+- app/rapport_pdf.py : rapport PDF d'une estimation (fpdf2)
+- app/polices/ : Hanken Grotesk et Cormorant Garamond (licence SIL OFL 1.1), instances statiques des polices variables de Google Fonts, pour que le PDF affiche accents et €
 - src/ingest.py : téléchargement des données DVF
 - src/clean.py : nettoyage
 - src/features.py : variables géographiques (OpenStreetMap)

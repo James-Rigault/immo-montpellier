@@ -18,8 +18,9 @@ from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa
 from marche import MIN_VENTES, evolution_prix, filtrer, grille_prix, prix_selon_pieces  # noqa: E402
 from train import ANNEE_TEST, ANNEE_VALIDATION, ANNEES_TRAIN, VARIABLES  # noqa: E402
 from predict import AdresseIntrouvable, Estimateur, geocoder_complet, niveau_confiance, suggestions  # noqa: E402
+from rapport_pdf import rapport_pdf  # noqa: E402
 from affichage import (  # noqa: E402
-    badge_confiance, bornes_classes, jauge_affaire, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
+    adresses_comparables, badge_confiance, bornes_classes, jauge_affaire, carte_resultat, couleur_classe, ecart_estimations, graphique_comparaison,
     graphique_courbe,
     graphique_entonnoir, graphique_erreurs, graphique_evolution, graphique_facteurs, graphique_importance, graphique_pieces, importance_variables,
     legende_carte, regrouper_facteurs, schema_parcours,
@@ -265,7 +266,7 @@ def confiance(r, bien):
 
 
 def section_resultat(r, bien, niveau, raisons):
-    """Le prix, sa fourchette et la confiance, sur fond alterné."""
+    """Le prix, sa fourchette et la confiance, sur fond alterné. Renvoie l'emplacement du bouton PDF."""
 
     with st.container(key="section-ombre-resultat"):
         gauche, droite = st.columns([7, 4], gap="large", vertical_alignment="bottom")
@@ -279,6 +280,17 @@ def section_resultat(r, bien, niveau, raisons):
             "se trouvaient dans une fourchette de ce type.</p>",
             unsafe_allow_html=True,
         )
+        # rempli plus bas, une fois la section « Bonne affaire ? » passée : le PDF reprend le prix demandé
+        return droite.empty()
+
+
+def bouton_rapport(emplacement, r, bien, niveau, raisons):
+    """Bouton « Télécharger le rapport (PDF) » : le rapport est généré en mémoire, en une fraction de seconde."""
+    facteurs = regrouper_facteurs(r["facteurs"]).head(8).rename(index=NOMS)
+    pdf = rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, st.session_state.get("affaire"))
+    nom = "estimation-" + "-".join(r["adresse"].lower().split()[:4]) + ".pdf"
+    emplacement.download_button("Télécharger le rapport (PDF)", pdf, file_name=nom, mime="application/pdf",
+                                key="rapport_pdf")
 
 
 def section_affaire(r, bien, niveau):
@@ -340,8 +352,7 @@ def section_pourquoi(r):
 def section_comparables(r):
     """04 — carte et tableau des ventes comparables, numérotées."""
     comp = r["comparables"].reset_index(drop=True)
-    numero_rue = comp["adresse_numero"].fillna(0).astype(int).astype(str).replace("0", "")
-    comp["adresse"] = (numero_rue + " " + comp["adresse_nom_voie"].str.title()).str.strip()
+    comp["adresse"] = adresses_comparables(comp)
     comp["repere"] = [str(i + 1) for i in range(len(comp))]
 
     # une ligne de description par vente, pour l'infobulle
@@ -459,8 +470,9 @@ def onglet_estimer(adresse):
         return
     r, bien = st.session_state["resultat"], st.session_state["bien"]
     niveau, raisons = confiance(r, bien)
-    section_resultat(r, bien, niveau, raisons)
+    emplacement = section_resultat(r, bien, niveau, raisons)
     section_affaire(r, bien, niveau)
+    bouton_rapport(emplacement, r, bien, niveau, raisons)
     section_pourquoi(r)
     section_comparables(r)
     section_simulateur(r, bien)

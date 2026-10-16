@@ -199,3 +199,19 @@ def test_bonne_affaire_apres_estimation(monkeypatch, demande, verdict):
     assert analyse["verdict"] in html and verdict.split()[0].lower() in analyse["verdict"].lower()
     assert 'class="jauge-affaire"' in html and "pas une expertise" in html
     assert analyse["nb_comparables"] == 10 and 0 <= analyse["moins_chers"] <= 10
+
+
+def test_bouton_rapport_pdf_apres_estimation(monkeypatch):
+    adresse = "10 Rue de la Loge 34000 Montpellier"
+    reponse = {"features": [{"properties": {"citycode": predict.CODE_COMMUNE, "label": adresse}}]}
+    monkeypatch.setattr(predict.requests, "get", lambda *a, **k: FausseReponse(reponse))
+    monkeypatch.setattr(predict, "geocoder", lambda texte: (43.6110, 3.8790, adresse))
+
+    app = lancer_app()
+    assert not app.get("download_button")  # pas de rapport avant une estimation
+    next(b for b in app.button if b.label == "Écusson").click().run()
+    next(b for b in app.button if b.label == "Estimer le prix").click().run()
+    app.number_input(key="prix_demande").set_value(300_000).run()
+    assert not app.exception
+    boutons = app.get("download_button")
+    assert len(boutons) == 1 and boutons[0].proto.label == "Télécharger le rapport (PDF)"
