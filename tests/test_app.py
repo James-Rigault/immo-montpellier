@@ -264,3 +264,20 @@ def test_textes_sans_titres_numerotes_ni_tirets_longs_et_une_seule_mise_en_garde
     assert not any(f"0{i} —" in t or f"0{i} –" in t for t in textes for i in range(1, 10))
     # une seule mise en garde, à côté de l'estimation
     assert sum("ne remplace pas l'avis d'un professionnel" in t for t in textes) == 1
+
+
+def test_modules_du_projet_recharges_apres_une_mise_a_jour():
+    # simule une mise à jour (git push) : Streamlit garde en mémoire l'ancienne version de marche.py, sans
+    # la fonction quartiers, alors que le fichier a changé. L'app doit recharger le module au lieu de planter.
+    import marche
+    lancer_app()  # première exécution : les empreintes des fichiers sont enregistrées
+    quartiers = marche.quartiers
+    del marche.quartiers
+    sys.modules["_empreintes_immo"].marche = "empreinte de l'ancienne version"
+    try:
+        app = lancer_app()
+        assert not app.exception
+        assert hasattr(sys.modules["marche"], "quartiers")
+    finally:
+        if not hasattr(marche, "quartiers"):
+            marche.quartiers = quartiers

@@ -1,7 +1,10 @@
 """Application Streamlit : estimer le prix d'un logement à Montpellier."""
 import base64
+import hashlib
+import importlib
 import json
 import sys
+import types
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -12,7 +15,26 @@ import requests
 import streamlit as st
 from pydeck.types import String
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+SRC = Path(__file__).resolve().parents[1] / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+# Streamlit relance ce fichier à chaque interaction, mais garde en mémoire les modules du projet déjà importés :
+# après une mise à jour (git push), l'app utiliserait encore leurs anciennes versions (ImportError sur une
+# fonction nouvelle). On recharge donc chaque module dont le fichier a changé depuis l'exécution précédente,
+# dans l'ordre de leurs dépendances. Les empreintes sont gardées dans un petit module qui survit aux exécutions.
+MODULES_PROJET = ["clean", "train", "features", "batiments", "marche", "erreurs", "affaire", "predict",
+                  "affichage", "rapport_pdf"]
+_empreintes = sys.modules.setdefault("_empreintes_immo", types.ModuleType("_empreintes_immo"))
+for _nom in MODULES_PROJET:
+    _module = sys.modules.get(_nom)
+    if _module is None:
+        continue
+    _empreinte = hashlib.sha1(Path(_module.__file__).read_bytes()).hexdigest()
+    if getattr(_empreintes, _nom, _empreinte) != _empreinte:
+        importlib.reload(_module)
+    setattr(_empreintes, _nom, _empreinte)
+
 from batiments import lettre_dpe  # noqa: E402
 from affaire import analyser_prix, position_comparables  # noqa: E402
 from erreurs import erreur_par_groupe, predictions_test, tranche_surface  # noqa: E402
@@ -72,10 +94,20 @@ def noms_facteurs(r):
 st.set_page_config(page_title="Estimation immobilière à Montpellier", page_icon=str(LOGO), layout="wide")
 
 
+# empreinte du code de l'estimateur : si une mise à jour le modifie, l'estimateur gardé en cache est rechargé
+VERSION_CODE = hashlib.sha1(b"".join(
+    (SRC / f"{nom}.py").read_bytes() for nom in ["predict", "batiments", "features", "train"]
+)).hexdigest()
+
+
 @st.cache_resource(show_spinner=False)
-def charger_estimateur():
-    """Chargé une seule fois au démarrage de l'app."""
+def estimateur_en_cache(version):
+    """Chargé une seule fois par version du code."""
     return Estimateur()
+
+
+def charger_estimateur():
+    return estimateur_en_cache(VERSION_CODE)
 @st.cache_data(ttl=3600, show_spinner=False)
 def chercher_adresses(texte):
     """Suggestions d'adresses, gardées en mémoire une heure."""
