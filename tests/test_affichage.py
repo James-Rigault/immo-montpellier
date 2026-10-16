@@ -87,7 +87,7 @@ def test_couleur_classe_suit_les_bornes():
     bornes = bornes_classes(pd.Series(range(1, 101)))
     assert len(bornes) == len(RAMPE) - 1 and bornes == sorted(bornes)
     assert couleur_classe(0, bornes) == [0xDC, 0xE3, 0xD9]  # la plus claire
-    assert couleur_classe(1000, bornes) == [0x1F, 0x3B, 0x2D]  # le vert bouteille
+    assert couleur_classe(1000, bornes) == [0x2A, 0x3D, 0x2F]  # le vert du logo
 
 
 def test_legende_carte_une_pastille_par_classe():

@@ -1,6 +1,8 @@
 """Application Streamlit : estimer le prix d'un logement à Montpellier."""
+import base64
 import json
 import sys
+from contextlib import contextmanager
 from html import escape
 from pathlib import Path
 
@@ -26,9 +28,15 @@ from affichage import (  # noqa: E402
     legende_carte, regrouper_facteurs, schema_parcours,
 )
 
-# à remplir avec tes adresses ; un lien laissé vide n'est pas affiché
-LIEN_GITHUB = ""
+NOM_APP = "Valeur Montpellier"
+# un lien laissé vide n'est pas affiché dans le pied de page
+LIEN_GITHUB = "https://github.com/James-Rigault/immo-montpellier"
+LIEN_METHODE = f"{LIEN_GITHUB}#démarche"
 LIEN_LINKEDIN = ""
+
+ASSETS = Path(__file__).resolve().parents[1] / "assets"
+LOGO = ASSETS / "logo.svg"
+LOGO_URI = "data:image/svg+xml;base64," + base64.b64encode(LOGO.read_bytes()).decode()
 
 RESULTATS_2025 = Path(__file__).resolve().parents[1] / "reports" / "resultats_test_2025.csv"
 RAPPORTS = Path(__file__).resolve().parents[1] / "reports"
@@ -36,7 +44,7 @@ ENTONNOIR = RAPPORTS / "entonnoir_nettoyage.csv"  # écrit par src/rapport_netto
 HORS_MARCHE = RAPPORTS / "ventes_hors_marche.json"  # écrit par src/rapport_nettoyage.py
 COMPARAISON = RAPPORTS / "comparaison_variables.csv"  # écrit par src/comparer_variables.py
 CORRESPONDANCE = RAPPORTS / "correspondance_batiments.csv"  # écrit par src/features.py
-FEUILLE_DE_STYLE = Path(__file__).resolve().parent / "style.css"
+FEUILLE_DE_STYLE = ASSETS / "style.css"
 
 NOMS = {
     "surface_reelle_bati": "Surface",
@@ -64,10 +72,10 @@ def noms_facteurs(r):
     """Noms lisibles des facteurs SHAP ; la classe DPE, reprise du bâtiment, est précisée entre parenthèses."""
     return {**NOMS, "dpe_classe": f"Classe DPE du bâtiment ({lettre_dpe(r.get('dpe_classe')) or 'inconnue'})"}
 
-st.set_page_config(page_title="Estimation immobilière à Montpellier", layout="wide")
+st.set_page_config(page_title=f"{NOM_APP} : estimation immobilière", page_icon=str(LOGO), layout="wide")
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def charger_estimateur():
     """Chargé une seule fois au démarrage de l'app."""
     return Estimateur()
@@ -123,7 +131,7 @@ def pourcent(x):
     return f"{x:.1f}\u202f%".replace(".", ",")
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def chiffres_cles():
     """Scores du modèle final sur les ventes de 2025, lus dans le rapport de test."""
     resultats = pd.read_csv(RESULTATS_2025, index_col=0)
@@ -135,10 +143,22 @@ def chiffres_cles():
     }
 
 
-# toute la mise en forme est dans app/style.css
+@contextmanager
+def chargement():
+    """Indicateur aux couleurs de l'app, à la place de celui de Streamlit, le temps d'un calcul."""
+    emplacement = st.empty()
+    emplacement.markdown('<div class="chargement" role="status"><span></span><span></span><span></span>'
+                         "<b>Loading...</b></div>", unsafe_allow_html=True)
+    try:
+        yield
+    finally:
+        emplacement.empty()
+
+
 st.markdown(f"<style>{FEUILLE_DE_STYLE.read_text()}</style>", unsafe_allow_html=True)
 
-ventes = charger_estimateur().ventes
+with chargement():  # le premier lancement charge le modèle et les ventes : quelques secondes
+    ventes = charger_estimateur().ventes
 nb_ventes = nombre(len(ventes))
 annees = ventes["date_mutation"].dt.year
 chiffres = chiffres_cles()
@@ -166,29 +186,13 @@ def champ_adresse(cle, exemple, libelle="Adresse"):
     return ""
 
 
-def hero():
-    """Ouverture plein écran : titre, champ d'adresse et chiffres clés. Renvoie l'adresse choisie."""
-    with st.container(key="hero"):
-        gauche, droite = st.columns([7, 5], gap="large", vertical_alignment="bottom")
-        gauche.markdown(f"""
-<h1 class="hero-titre">Ce que vaut<br>un logement<br><em>à Montpellier.</em></h1>
-<p class="hero-texte">Le modèle a appris sur {nb_ventes} ventes réelles enregistrées entre {annees.min()} et
-{annees.max()}. Entrez une adresse pour estimer un appartement ou une maison.</p>""", unsafe_allow_html=True)
-
-        with droite:
-            adresse = champ_adresse("texte", "10 rue de la Loge")
-            st.markdown('<span class="etiquette">Exemples :</span>', unsafe_allow_html=True)
-            with st.container(horizontal=True, key="exemples"):
-                for quartier, exemple in EXEMPLES.items():
-                    st.button(quartier, on_click=remplir_adresse, args=(exemple,))
-
-        st.markdown(f"""
-<div class="chiffres">
-  <div class="chiffre"><b>{pourcent(chiffres["erreur_mediane"])}</b><span>Erreur médiane sur les ventes de 2025</span></div>
-  <div class="chiffre"><b>{chiffres["part_10"]:.0f}\u202f%</b><span>Des prix estimés à ±10\u202f% près</span></div>
-  <div class="chiffre"><b>{chiffres["couverture"] / 10:.0f} sur 10</b><span>Vrais prix compris dans la fourchette</span></div>
-</div>""", unsafe_allow_html=True)
-    return adresse
+def bandeau():
+    """Logo et nom de l'app à gauche, deux liens discrets à droite."""
+    st.markdown(f"""
+<header class="bandeau">
+  <a class="marque" href="./" target="_self"><img src="{LOGO_URI}" alt="Logo {NOM_APP}"><span class="marque-nom">{NOM_APP}</span></a>
+  <nav><a href="{LIEN_METHODE}" target="_blank">Méthode</a><a href="{LIEN_GITHUB}" target="_blank">GitHub</a></nav>
+</header>""", unsafe_allow_html=True)
 
 
 def entete(titre, texte=""):
@@ -197,50 +201,50 @@ def entete(titre, texte=""):
     return f'<h2 class="titre-section">{titre}</h2>{paragraphe}'
 
 
-def section_bien(adresse):
-    """Le formulaire. Enregistre le résultat dans la session quand l'estimation réussit."""
-    with st.container(key="section-bien"):
-        gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
-            "Le logement",
-            "L'adresse se saisit en haut de page. Les caves et parkings vendus avec le logement comptent dans le prix.",
-        ), unsafe_allow_html=True)
-        infos = infos_batiment(adresse) if adresse else None
-        annee_connue = infos["annee_construction"] if infos else None
-        # le DPE n'est pas saisi : c'est celui du bâtiment, ou une valeur manquante s'il est inconnu
-        dpe_classe = infos["dpe_classe"] if infos else None
-        with droite, st.form("formulaire", border=False):
-            # une rangée de colonnes par ligne : sur téléphone, les champs s'empilent dans le bon ordre
-            col1, col2 = st.columns(2, gap="large")
-            type_local = col1.radio("Type de bien", ["Appartement", "Maison"], horizontal=True)
-            surface = col2.number_input("Surface habitable (m²)", min_value=9, max_value=400, value=60)
-            col1, col2 = st.columns(2, gap="large")
-            pieces = col1.number_input("Nombre de pièces", min_value=1, max_value=15, value=3)
-            dependances = col2.number_input("Caves et parkings", min_value=0, max_value=5, value=0)
-            col1, col2 = st.columns(2, gap="large")
-            terrain = col1.number_input("Terrain (m², pour une maison)", min_value=0, max_value=5000, value=0)
-            # la clé dépend de l'adresse : une nouvelle adresse remet les valeurs du bâtiment
-            annee = col2.number_input("Année de construction", min_value=1600, max_value=pd.Timestamp.today().year,
-                                      value=annee_connue, placeholder="Inconnue", key=f"annee_{adresse}")
-            if adresse:
-                st.markdown(f'<p class="note">{note_batiment(infos)}</p>', unsafe_allow_html=True)
-            valider = st.form_submit_button("Estimer le prix", type="primary")
+def titre_carte(titre, texte=""):
+    """Titre d'une carte de résultat, plus petit que celui d'une section."""
+    paragraphe = f'<p class="note">{texte}</p>' if texte else ""
+    return f'<h3 class="titre-carte">{titre}</h3>{paragraphe}'
 
-        if not valider:
-            return
-        if not adresse:
-            droite.warning("Saisissez une adresse en haut de page et choisissez-la dans les suggestions.")
-            return
-        try:
-            with st.spinner("Calcul en cours…"):
-                r = charger_estimateur().estimer(adresse, type_local, surface, pieces, dependances, terrain,
-                                                 annee, dpe_classe)
-        except AdresseIntrouvable:
-            droite.error("Adresse introuvable dans la commune de Montpellier. Vérifiez l'orthographe.")
-            return
-        except requests.RequestException:
-            droite.error("Le service de géocodage ne répond pas. Réessayez dans un instant.")
-            return
+
+def formulaire_bien(adresse):
+    """Les caractéristiques du bien et le bouton d'estimation. Enregistre le résultat quand l'estimation réussit."""
+    infos = infos_batiment(adresse) if adresse else None
+    annee_connue = infos["annee_construction"] if infos else None
+    # le DPE n'est pas saisi : c'est celui du bâtiment, ou une valeur manquante s'il est inconnu
+    dpe_classe = infos["dpe_classe"] if infos else None
+    with st.form("formulaire", border=False):
+        # une rangée de colonnes par ligne : sur téléphone, les champs s'empilent dans le bon ordre
+        col1, col2 = st.columns(2)
+        type_local = col1.radio("Type de bien", ["Appartement", "Maison"], horizontal=True)
+        surface = col2.number_input("Surface habitable (m²)", min_value=9, max_value=400, value=60)
+        col1, col2 = st.columns(2)
+        pieces = col1.number_input("Nombre de pièces", min_value=1, max_value=15, value=3)
+        dependances = col2.number_input("Caves et parkings", min_value=0, max_value=5, value=0)
+        col1, col2 = st.columns(2)
+        terrain = col1.number_input("Terrain (m², pour une maison)", min_value=0, max_value=5000, value=0)
+        # la clé dépend de l'adresse : une nouvelle adresse remet les valeurs du bâtiment
+        annee = col2.number_input("Année de construction", min_value=1600, max_value=pd.Timestamp.today().year,
+                                  value=annee_connue, placeholder="Inconnue", key=f"annee_{adresse}")
+        if adresse:
+            st.markdown(f'<p class="note">{note_batiment(infos)}</p>', unsafe_allow_html=True)
+        valider = st.form_submit_button("Estimer le prix", type="primary")
+
+    if not valider:
+        return
+    if not adresse:
+        st.warning("Saisissez une adresse et choisissez-la dans les suggestions.")
+        return
+    try:
+        with chargement():
+            r = charger_estimateur().estimer(adresse, type_local, surface, pieces, dependances, terrain,
+                                             annee, dpe_classe)
+    except AdresseIntrouvable:
+        st.error("Adresse introuvable dans la commune de Montpellier. Vérifiez l'orthographe.")
+        return
+    except requests.RequestException:
+        st.error("Le service de géocodage ne répond pas. Réessayez dans un instant.")
+        return
 
     # on garde le résultat en mémoire : il reste affiché quand on bouge les curseurs du simulateur
     r["dpe_classe"] = dpe_classe
@@ -254,6 +258,37 @@ def section_bien(adresse):
         st.session_state.pop(cle, None)
 
 
+def accueil():
+    """Titre à gauche, carte de saisie à droite, puis les chiffres clés."""
+    with st.container(key="hero"):
+        gauche, droite = st.columns([5, 7], gap="large", vertical_alignment="center")
+        gauche.markdown("""
+<h1 class="hero-titre">Ce que vaut votre logement <em>à Montpellier.</em></h1>
+<p class="hero-texte">Entrez l'adresse et les caractéristiques du logement pour obtenir son prix estimé et sa
+fourchette.</p>""", unsafe_allow_html=True)
+
+        with droite:
+            with st.container(key="carte-saisie"):
+                adresse = champ_adresse("texte", "10 rue de la Loge")
+                with st.container(horizontal=True, key="exemples"):
+                    st.markdown('<span class="etiquette">Exemples :</span>', unsafe_allow_html=True)
+                    for quartier, exemple in EXEMPLES.items():
+                        st.button(quartier, on_click=remplir_adresse, args=(exemple,))
+                formulaire_bien(adresse)
+            st.markdown(
+                f'<p class="source-donnees">L\'estimation repose sur {nb_ventes} ventes réelles enregistrées à '
+                f"Montpellier entre {annees.min()} et {annees.max()} (données DVF).</p>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(f"""
+<div class="chiffres">
+  <div class="chiffre"><b>{nb_ventes}</b><span>Ventes analysées</span></div>
+  <div class="chiffre"><b>{pourcent(chiffres["erreur_mediane"])}</b><span>Erreur médiane sur les ventes de 2025</span></div>
+  <div class="chiffre"><b>{chiffres["part_10"]:.0f}\u202f%</b><span>Des estimations à moins de 10\u202f% du vrai prix</span></div>
+</div>""", unsafe_allow_html=True)
+
+
 def confiance(r, bien):
     """Niveau de confiance de l'estimation (élevée, moyenne, faible) et ses raisons."""
     estimateur = charger_estimateur()
@@ -263,10 +298,9 @@ def confiance(r, bien):
     return niveau_confiance(nb_voisins, largeur, atypique)
 
 
-def section_resultat(r, bien, niveau, raisons):
-    """Le prix, sa fourchette et la confiance, sur fond alterné. Renvoie l'emplacement du bouton PDF."""
-
-    with st.container(key="section-ombre-resultat"):
+def carte_prix(r, niveau, raisons):
+    """La carte principale : le prix, sa fourchette et la confiance. Renvoie l'emplacement du bouton PDF."""
+    with st.container(key="carte-prix"):
         gauche, droite = st.columns([7, 4], gap="large", vertical_alignment="bottom")
         gauche.markdown(
             carte_resultat(r["adresse"], r["prix"], r["prix_m2"], r["prix_bas"], r["prix_haut"], euros),
@@ -278,7 +312,7 @@ def section_resultat(r, bien, niveau, raisons):
             "l'étage, ni la vue. Elle ne remplace pas l'avis d'un professionnel.</p>",
             unsafe_allow_html=True,
         )
-        # rempli plus bas, une fois la section « Bonne affaire ? » passée : le PDF reprend le prix demandé
+        # rempli plus bas, une fois « Bonne affaire ? » passé : le PDF reprend le prix demandé
         return droite.empty()
 
 
@@ -291,58 +325,54 @@ def bouton_rapport(emplacement, r, bien, niveau, raisons):
                                 key="rapport_pdf")
 
 
-def section_affaire(r, bien, niveau):
+def carte_affaire(r, bien, niveau):
     """« Bonne affaire ? » : le prix demandé face à l'estimation, à la fourchette et aux ventes comparables."""
-    with st.container(key="section-affaire"):
-        gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
+    with st.container(key="carte-affaire"):
+        st.markdown(titre_carte(
             "Bonne affaire ?",
-            "Si vous avez vu ce logement dans une annonce, entrez le prix demandé pour le comparer à l'estimation.",
+            "Vous avez vu ce logement dans une annonce ? Entrez le prix demandé pour le comparer à l'estimation.",
         ), unsafe_allow_html=True)
-        with droite:
-            demande = st.number_input("Prix demandé (€)", min_value=1_000, max_value=10_000_000, value=None,
-                                      step=1_000, placeholder="Facultatif", key="prix_demande")
-            if demande is None:
-                st.session_state.pop("affaire", None)
-                return
-            analyse = analyser_prix(demande, r["prix"], r["prix_bas"], r["prix_haut"], niveau)
-            comparables = charger_estimateur().comparables(
-                r["latitude"], r["longitude"], bien["type_local"], bien["surface"], n=10)
-            moins_chers, total = position_comparables(demande / bien["surface"], comparables["prix_m2"])
-            analyse.update(prix_demande=demande, moins_chers=moins_chers, nb_comparables=total)
-            st.session_state["affaire"] = analyse  # repris dans le rapport PDF
+        demande = st.number_input("Prix demandé (€)", min_value=1_000, max_value=10_000_000, value=None,
+                                  step=1_000, placeholder="Facultatif", key="prix_demande")
+        if demande is None:
+            st.session_state.pop("affaire", None)
+            return
+        analyse = analyser_prix(demande, r["prix"], r["prix_bas"], r["prix_haut"], niveau)
+        comparables = charger_estimateur().comparables(
+            r["latitude"], r["longitude"], bien["type_local"], bien["surface"], n=10)
+        moins_chers, total = position_comparables(demande / bien["surface"], comparables["prix_m2"])
+        analyse.update(prix_demande=demande, moins_chers=moins_chers, nb_comparables=total)
+        st.session_state["affaire"] = analyse  # repris dans le rapport PDF
 
-            if round(analyse["ecart"]) == 0:
-                ecart = "Le prix demandé est égal à l'estimation."
-            else:
-                sens = "au-dessus" if analyse["ecart"] > 0 else "en dessous"
-                ecart = (f"Le prix demandé est {euros(abs(analyse['ecart']))} {sens} de l'estimation "
-                         f"({signe(analyse['ecart_pct'], pourcent(abs(analyse['ecart_pct'])))}).")
-            st.markdown(f"""
+        if round(analyse["ecart"]) == 0:
+            ecart = "Le prix demandé est égal à l'estimation."
+        else:
+            sens = "au-dessus" if analyse["ecart"] > 0 else "en dessous"
+            ecart = (f"Le prix demandé est {euros(abs(analyse['ecart']))} {sens} de l'estimation "
+                     f"({signe(analyse['ecart_pct'], pourcent(abs(analyse['ecart_pct'])))}).")
+        st.markdown(f"""
 <p class="verdict">{analyse["verdict"]}</p>
 <p class="texte-section">{ecart} Au m² ({euros(demande / bien["surface"])}), il est plus cher que {moins_chers} des
 {total} ventes comparables les plus proches.</p>""", unsafe_allow_html=True)
-            st.markdown(jauge_affaire(r["prix"], r["prix_bas"], r["prix_haut"], demande, euros),
-                        unsafe_allow_html=True)
-            if analyse["prudent"]:
-                st.warning("Confiance faible : peu de ventes comparables ou fourchette large. Ce verdict est une "
-                           "indication, à vérifier avec d'autres références.")
+        st.markdown(jauge_affaire(r["prix"], r["prix_bas"], r["prix_haut"], demande, euros), unsafe_allow_html=True)
+        if analyse["prudent"]:
+            st.warning("Confiance faible : peu de ventes comparables ou fourchette large. Ce verdict est une "
+                       "indication, à vérifier avec d'autres références.")
 
 
-def section_pourquoi(r):
+def carte_pourquoi(r):
     """L'explication SHAP du prix."""
-    with st.container(key="section-ombre-pourquoi"):
-        gauche, droite = st.columns([4, 8], gap="large")
-        gauche.markdown(entete(
+    with st.container(key="carte-pourquoi"):
+        st.markdown(titre_carte(
             "Pourquoi ce prix",
             f"Le modèle part d'un prix moyen de {euros(r['base'])} pour cette surface. Chaque caractéristique "
             "l'augmente (en noir) ou le diminue (en gris). Ces effets sont calculés avec les valeurs SHAP.",
         ), unsafe_allow_html=True)
         principaux = regrouper_facteurs(r["facteurs"]).head(8).rename(index=noms_facteurs(r))
-        droite.altair_chart(graphique_facteurs(principaux), width="stretch")
+        st.altair_chart(graphique_facteurs(principaux), width="stretch")
 
 
-def section_comparables(r):
+def carte_comparables(r):
     """Carte et tableau des ventes comparables, numérotées."""
     comp = r["comparables"].reset_index(drop=True)
     comp["adresse"] = adresses_comparables(comp)
@@ -367,17 +397,17 @@ def section_comparables(r):
         "repere": [""], "info": [f"Bien estimé : {r['adresse']}"],
     })
     points = pd.concat([estime, groupes], ignore_index=True)
-    # le bien estimé en vert bouteille, les ventes en encre : deux couleurs, rien de plus
-    points["couleur"] = [[31, 59, 45]] + [[20, 20, 20]] * len(groupes)
+    # le bien estimé en doré, les ventes en vert : les deux couleurs du logo
+    points["couleur"] = [[201, 168, 106]] + [[42, 61, 47]] * len(groupes)
 
     cercles = pdk.Layer(
         "ScatterplotLayer", data=points, get_position="[lon, lat]", get_fill_color="couleur",
         get_radius=6, radius_min_pixels=9, radius_max_pixels=12, pickable=True,
-        stroked=True, get_line_color=[244, 242, 238], line_width_min_pixels=1.5,
+        stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1.5,
     )
     numeros = pdk.Layer(
         "TextLayer", data=points[points["repere"] != ""], get_position="[lon, lat]", get_text="repere",
-        get_size=11, get_color=[244, 242, 238], font_family=String("Hanken Grotesk, Arial, sans-serif"),
+        get_size=11, get_color=[255, 255, 255], font_family=String("Hanken Grotesk, Arial, sans-serif"),
         get_text_anchor=String("middle"), get_alignment_baseline=String("center"),
     )
     vue = pdk.ViewState(latitude=r["latitude"], longitude=r["longitude"], zoom=16)
@@ -393,11 +423,11 @@ def section_comparables(r):
         "Distance (m)": comp["distance_m"].round(),
     })
 
-    with st.container(key="section-comparables"):
-        st.markdown(entete(
+    with st.container(key="carte-comparables"):
+        st.markdown(titre_carte(
             "Ventes comparables",
-            "Les ventes du même type et de surface proche les plus près de l'adresse. Le point vert est le "
-            "logement estimé, les points noirs renvoient aux numéros du tableau.",
+            "Les ventes du même type et de surface proche les plus près de l'adresse. Le point doré est le "
+            "logement estimé, les points verts renvoient aux numéros du tableau.",
         ), unsafe_allow_html=True)
         st.pydeck_chart(pdk.Deck(
             layers=[cercles, numeros], initial_view_state=vue, tooltip={"text": "{info}"},
@@ -409,7 +439,7 @@ def section_comparables(r):
 def section_simulateur(r, bien):
     """« Et si » : on change les caractéristiques, au même emplacement."""
     estimateur = charger_estimateur()
-    with st.container(key="section-ombre-simulateur"):
+    with st.container(key="section-simulateur"):
         gauche, droite = st.columns([4, 8], gap="large")
         with gauche:
             st.markdown(entete(
@@ -453,18 +483,23 @@ def section_simulateur(r, bien):
             )
 
 
-def onglet_estimer(adresse):
-    """Formulaire, puis, après une estimation : résultat, lecture, comparables et simulateur."""
-    section_bien(adresse)
+def onglet_estimer():
+    """La saisie, puis, après une estimation : le prix, l'explication, « Bonne affaire ? », les comparables
+    et le simulateur."""
+    accueil()
     if "resultat" not in st.session_state:
         return
     r, bien = st.session_state["resultat"], st.session_state["bien"]
     niveau, raisons = confiance(r, bien)
-    emplacement = section_resultat(r, bien, niveau, raisons)
-    section_affaire(r, bien, niveau)
-    bouton_rapport(emplacement, r, bien, niveau, raisons)
-    section_pourquoi(r)
-    section_comparables(r)
+    with st.container(key="section-resultats"):
+        emplacement = carte_prix(r, niveau, raisons)
+        gauche, droite = st.columns([7, 5], gap="medium")
+        with gauche:
+            carte_pourquoi(r)
+        with droite:
+            carte_affaire(r, bien, niveau)
+        bouton_rapport(emplacement, r, bien, niveau, raisons)
+        carte_comparables(r)
     section_simulateur(r, bien)
 
 
@@ -652,7 +687,7 @@ def onglet_comparer():
         ), unsafe_allow_html=True)
         biens = formulaire_comparaison()
         if biens:
-            with st.spinner("Calcul en cours…"):
+            with chargement():
                 resultats = estimer_biens(biens)
             if resultats:
                 st.session_state["resultats_comparaison"] = resultats
@@ -666,16 +701,17 @@ def onglet_comparer():
             "Les deux estimations",
             "Sous chaque prix, les 5 caractéristiques qui pèsent le plus, en milliers d'euros.",
         ), unsafe_allow_html=True)
-        for nom, colonne in zip(resultats, st.columns(2, gap="large")):
+        for nom, colonne in zip(resultats, st.columns(2, gap="medium")):
             r = resultats[nom]
-            colonne.markdown(
-                f'<div class="comparaison"><h3 class="titre-bien">{TITRES_BIENS[nom]}</h3>'
-                + carte_resultat(r["adresse"], r["prix"], r["prix_m2"], r["prix_bas"], r["prix_haut"], euros)
-                + "</div>",
-                unsafe_allow_html=True,
-            )
-            principaux = regrouper_facteurs(r["facteurs"]).head(5).rename(index=noms_facteurs(r))
-            colonne.altair_chart(graphique_facteurs(principaux), width="stretch")
+            with colonne.container(key=f"carte-bien-{nom}"):
+                st.markdown(
+                    f'<div class="comparaison"><h3 class="titre-bien">{TITRES_BIENS[nom]}</h3>'
+                    + carte_resultat(r["adresse"], r["prix"], r["prix_m2"], r["prix_bas"], r["prix_haut"], euros)
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                principaux = regrouper_facteurs(r["facteurs"]).head(5).rename(index=noms_facteurs(r))
+                st.altair_chart(graphique_facteurs(principaux), width="stretch")
 
     section_ecart(resultats)
 
@@ -706,7 +742,7 @@ def erreurs_2025():
     }
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def rapports_batiment():
     """Ventes hors marché retirées, comparaison sur la validation 2024 et correspondance avec les bâtiments."""
     return (
@@ -853,7 +889,7 @@ soit {gain * 100:.0f}\u202f% de moins que cette méthode simple.</p>""", unsafe_
         ]), unsafe_allow_html=True)
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def entonnoir():
     """Lignes restantes après chaque étape du nettoyage, lues dans le rapport."""
     return pd.read_csv(ENTONNOIR)
@@ -934,24 +970,24 @@ def liens_auteur():
 
 
 def pied_de_page():
-    """Bande noire de fin de page : titre, sources, liens."""
+    """Bande verte de fin de page : logo et nom, sources, liens."""
     liens = liens_auteur() or "Liens à venir"
     with st.container(key="pied"):
         st.markdown(f"""
 <div class="pied-grille">
-  <p class="pied-titre">Ce que vaut un logement <em>à Montpellier.</em></p>
+  <div class="pied-marque"><img src="{LOGO_URI}" alt=""><p class="pied-titre">{NOM_APP}</p></div>
   <div><span class="etiquette">Données</span><p>DVF {annees.min()}–{annees.max()}, OpenStreetMap, BDNB, ADEME, IGN</p></div>
   <div><span class="etiquette">Auteur</span><p>{liens}</p></div>
 </div>
 """, unsafe_allow_html=True)
 
 
-# l'ouverture (titre, adresse, chiffres clés) n'apparaît que dans l'onglet Estimer
+bandeau()
 estimer, explorer, comparer, modele, a_propos = st.tabs(
     ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
 )
 with estimer:
-    onglet_estimer(hero())
+    onglet_estimer()
 with explorer:
     onglet_explorer()
 with comparer:

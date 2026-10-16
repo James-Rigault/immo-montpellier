@@ -11,7 +11,11 @@ from fpdf import FPDF
 from affichage import adresses_comparables
 
 POLICES = Path(__file__).resolve().parent / "polices"
-ENCRE, GRIS, GRIS_CLAIR, FILET, ACCENT = (20, 20, 20), (140, 135, 127), (185, 180, 172), (214, 210, 203), (31, 59, 45)
+LOGO = Path(__file__).resolve().parents[1] / "assets" / "logo.svg"
+NOM_APP = "Valeur Montpellier"
+# même palette que assets/style.css : le vert et le doré du logo, l'encre, des gris chauds
+ENCRE, GRIS, GRIS_CLAIR, FILET = (20, 20, 20), (110, 106, 98), (185, 180, 172), (214, 210, 203)
+VERT, DORE = (42, 61, 47), (201, 168, 106)
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
         "novembre", "décembre"]
 
@@ -89,7 +93,7 @@ class Rapport(FPDF):
             self.cell(0, 7, texte(valeur), new_x="LMARGIN", new_y="NEXT")
             self.filet()
 
-    def chiffres(self, elements):
+    def chiffres(self, elements, premier_en_vert=False):
         """Trois grands chiffres côte à côte, à la manière de l'app.
 
         En Hanken Grotesk : Cormorant dessine des chiffres de hauteur variable (elzéviriens), que l'app
@@ -100,8 +104,8 @@ class Rapport(FPDF):
         for i, (valeur, legende) in enumerate(elements):
             x = self.l_margin + i * largeur
             self.set_xy(x, y)
-            self.set_font("Hanken", "", 14)
-            self.set_text_color(*ENCRE)
+            self.set_font("Hanken", "B" if premier_en_vert and i == 0 else "", 14)
+            self.set_text_color(*(VERT if premier_en_vert and i == 0 else ENCRE))
             self.cell(largeur, 9, texte(valeur))
             self.set_xy(x, y + 10)
             self.set_font("Hanken", "", 8)
@@ -159,8 +163,19 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
     pdf = Rapport()
     pdf.add_page()
 
-    pdf.paragraphe(f"Estimation du {date_longue(jour or date.today())}", 8.5, GRIS)
-    pdf.ln(1)
+    # en-tête : le logo tel quel (fpdf2 lit le SVG), le nom de l'app et la date, puis un filet doré
+    pdf.image(LOGO, x=pdf.l_margin, y=pdf.t_margin, h=11)
+    pdf.set_xy(pdf.l_margin + 14, pdf.t_margin + 0.5)
+    pdf.set_font("Cormorant", "", 15)
+    pdf.set_text_color(*VERT)
+    pdf.cell(0, 6, NOM_APP, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin + 14)
+    pdf.set_font("Hanken", "", 8.5)
+    pdf.set_text_color(*GRIS)
+    pdf.cell(0, 4.5, texte(f"Estimation du {date_longue(jour or date.today())}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    pdf.filet(DORE, 0.6)
+    pdf.ln(5)
     pdf.titre(r["adresse"], 24)
 
     pdf.section("Le logement")
@@ -180,7 +195,7 @@ def rapport_pdf(r, bien, niveau, raisons, facteurs, chiffres, affaire=None, jour
         (euros(r["prix"]), f"Soit {euros(r['prix_m2'])} le m²"),
         (euros(r["prix_bas"]), "Fourchette basse"),
         (euros(r["prix_haut"]), "Fourchette haute"),
-    ])
+    ], premier_en_vert=True)
     pdf.lignes([("Confiance", f"{niveau.capitalize()} : " + ", ".join(raisons))], largeur_cle=30)
     pdf.ln(1)
     pdf.paragraphe(f"Sur les ventes de 2025, {chiffres['couverture'] / 10:.0f} vrais prix sur 10 se trouvaient "

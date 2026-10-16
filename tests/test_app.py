@@ -37,14 +37,15 @@ def test_bouton_exemple_remplit_adresse(monkeypatch, quartier, adresse):
     assert app.selectbox[0].value == adresse
 
 
-def test_chiffres_cles_lus_dans_le_rapport_2025():
+def test_chiffres_cles_lus_dans_les_donnees_et_le_rapport_2025():
     final = pd.read_csv(RACINE / "reports" / "resultats_test_2025.csv", index_col=0).loc["LightGBM final"]
+    ventes = pd.read_parquet(RACINE / "data" / "processed" / "ventes_features.parquet")
     app = lancer_app()
     badges = next(m.value for m in app.markdown if 'class="chiffres"' in m.value)
-    # « \u202f » : espace fine insécable entre le nombre et « % »
+    # « \u202f » : espace fine insécable, entre milliers et avant « % »
+    assert f"{len(ventes):,}".replace(",", "\u202f") in badges
     assert f"{final['Erreur médiane (%)']:.1f}\u202f%".replace(".", ",") in badges
     assert f"{final['Part à ±10 % (%)']:.0f}\u202f%" in badges
-    assert f"{final['Couverture fourchette (%)'] / 10:.0f} sur 10" in badges
 
 
 def test_estimation_affiche_carte_et_confiance(monkeypatch):
@@ -62,7 +63,7 @@ def test_estimation_affiche_carte_et_confiance(monkeypatch):
     assert 'class="resultat"' in html and 'class="fourchette"' in html
     assert 'class="confiance"' in html
     graphiques = [str(json.loads(g.proto.spec)) for g in app.get("vega_lite_chart")]
-    assert any("Effet sur le prix, en milliers d'euros" in spec for spec in graphiques)
+    assert any("Effet sur le prix, en k€" in spec for spec in graphiques)
 
 
 def test_onglets_et_pied_de_page():
@@ -71,9 +72,13 @@ def test_onglets_et_pied_de_page():
     assert [onglet.label for onglet in app.tabs] == ["Estimer", "Explorer le marché", "Comparer", "Le modèle", "À propos"]
     assert "Limites" in "".join(m.value for m in app.tabs[3].markdown)
     assert "data.gouv.fr" in "".join(m.value for m in app.tabs[4].markdown)
-    # liens pas encore renseignés : ils ne doivent pas apparaître vides
+    # le lien LinkedIn n'est pas renseigné : il ne doit pas apparaître vide
     pied = next(m.value for m in app.markdown if 'class="pied-grille"' in m.value)
-    assert 'href=""' not in pied and "Liens à venir" in pied
+    assert 'href=""' not in pied and "github.com/James-Rigault/immo-montpellier" in pied
+    # bandeau : logo (le fichier tel quel, en ligne), nom de l'app, liens Méthode et GitHub
+    bandeau = next(m.value for m in app.markdown if 'class="bandeau"' in m.value)
+    assert "data:image/svg+xml;base64," in bandeau and "Valeur Montpellier" in bandeau
+    assert ">Méthode<" in bandeau and ">GitHub<" in bandeau
 
 
 @pytest.mark.parametrize("type_local, annee", [("Tous", "Toutes"), ("Appartement", 2023), ("Maison", 2025)])

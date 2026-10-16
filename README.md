@@ -73,6 +73,8 @@ Résultat final sur les ventes de 2025 (test lancé une seule fois, pour le mod�
 ## Structure du projet
 
 - app/streamlit_app.py : l'application
+- assets/ : le logo (logo.svg, aussi utilisé comme favicon et dans le rapport PDF) et la feuille de style de l'application (style.css), avec les couleurs en variables CSS
+- .streamlit/config.toml : le thème Streamlit (couleur principale, fond, polices)
 - app/requirements.txt : les dépendances (versions figées) pour le déploiement
 - app/rapport_pdf.py : rapport PDF d'une estimation (fpdf2)
 - app/polices/ : Hanken Grotesk et Cormorant Garamond (licence SIL OFL 1.1), instances statiques des polices variables de Google Fonts, pour que le PDF affiche accents et €

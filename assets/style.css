@@ -1,0 +1,345 @@
+/* Mise en forme de l'app. Les couleurs viennent du logo (vert et doré) et du fond beige d'origine.
+   Les sélecteurs visent les data-testid de Streamlit et les classes st-key-… des conteneurs nommés,
+   plus stables que les classes générées (st-emotion-cache-…). */
+
+:root {
+  --vert: #2A3D2F;          /* couleur du logo : bouton principal, prix */
+  --vert-fonce: #1E2D22;    /* survol du bouton principal */
+  --vert-pale: #E6ECE6;     /* survol des boutons secondaires, bande de la fourchette */
+  --vert-bord: #C9D4CA;     /* contour de la bande de la fourchette */
+  --piste: #EFEDE8;         /* fond de la piste */
+  --dore: #C9A86A;          /* barre dorée du logo : détails sans texte (illisible en texte sur fond clair) */
+  --fond: #F4F2EE;
+  --carte: #FFFFFF;
+  --encre: #141414;
+  --texte-doux: #4A4743;
+  --gris: #6E6A62;          /* textes secondaires : contraste de 4,8 sur le fond, 5,4 sur une carte */
+  --gris-clair: #B9B4AC;
+  --filet: #D6D2CB;
+  --pied-texte: #F4F2EC;    /* blanc cassé du logo */
+  --pied-doux: #B8C2BA;
+
+  --serif: "Cormorant Garamond", "Times New Roman", serif;
+  --sans: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+
+  --rayon-carte: 16px;
+  --rayon-champ: 10px;
+  --pilule: 999px;
+  --ombre-carte: 0 1px 2px rgba(20, 20, 20, 0.04), 0 8px 24px rgba(20, 20, 20, 0.05);
+  --anneau: 0 0 0 3px rgba(42, 61, 47, 0.14);
+
+  --largeur: 1240px;
+  --gouttiere: clamp(1rem, 4vw, 3rem);
+  /* marge latérale qui centre le contenu tout en laissant le fond déborder sur toute la largeur */
+  --marge: max(var(--gouttiere), calc((100% - var(--largeur)) / 2));
+}
+
+/* On retire ce qui fait « prototype » : en-tête et son ombre, menu, bouton Deploy, « Running… », pied de page */
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stSpinner"],
+footer { display: none !important; }
+
+.stApp { background: var(--fond); }
+[data-testid="stMainBlockContainer"] { padding: 0 !important; max-width: none !important; }
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { gap: 0; }
+
+/* chiffres alignés partout : Cormorant dessine par défaut des chiffres de hauteur variable */
+.stApp, .stApp input { font-variant-numeric: lining-nums tabular-nums; }
+.prix-estime, .chiffre b, .simulation b { font-variant-numeric: lining-nums proportional-nums; }
+
+
+/* Bandeau : logo et nom à gauche, liens à droite */
+.bandeau {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.9rem var(--marge); background: var(--fond);
+}
+.stApp a.marque { display: flex; align-items: center; gap: 0.75rem; border: none; color: var(--encre) !important; }
+.marque img { height: 38px; width: 38px; display: block; }
+.marque-nom { font-family: var(--serif); font-weight: 600; font-size: 1.45rem; line-height: 1; letter-spacing: 0.01em; }
+.bandeau nav { display: flex; gap: 1.5rem; }
+.stApp .bandeau nav a { font-size: 0.92rem; color: var(--texte-doux) !important; border-bottom: none; }
+.stApp .bandeau nav a:hover { color: var(--vert) !important; }
+
+/* Onglets */
+[data-testid="stTabs"] [role="tablist"] { padding: 0 var(--marge); gap: 2rem; border-bottom: 1px solid var(--filet); }
+[data-testid="stTab"] { padding: 1rem 0 0.9rem; }
+[data-testid="stTab"] p { font-size: 0.95rem; color: var(--gris); }
+[data-testid="stTab"][aria-selected="true"] p { color: var(--encre); font-weight: 500; }
+[data-testid="stTabPanel"] { padding: 0; }
+[data-testid="stTabPanel"] > [data-testid="stVerticalBlock"] { gap: 0; }
+
+
+/* Sections : pleine largeur, séparées par un filet */
+[class*="st-key-section-"] { padding: clamp(2.5rem, 6vw, 4.5rem) var(--marge); gap: 1.5rem; border-top: 1px solid var(--filet); }
+
+/* Typographie */
+[data-testid="stWidgetLabel"] p {
+  font-family: var(--sans); font-size: 0.72rem !important; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gris);
+}
+.etiquette { font-family: var(--sans); font-size: 0.85rem !important; color: var(--gris); }
+h2.titre-section {
+  font-family: var(--serif) !important; font-weight: 500 !important;
+  font-size: clamp(2rem, 3.6vw, 3rem) !important; line-height: 1.05 !important;
+  padding: 0 !important; margin: 0 !important;
+}
+h3.titre-carte {
+  font-family: var(--serif) !important; font-weight: 600 !important; font-size: 1.7rem !important;
+  line-height: 1.1 !important; padding: 0 !important; margin: 0 0 0.4rem !important;
+}
+p.texte-court { color: var(--texte-doux); max-width: 28rem; line-height: 1.6; margin-top: 1rem !important; }
+p.texte-section { color: var(--texte-doux); line-height: 1.65; max-width: 46rem; margin: 0 0 1rem !important; }
+p.note, span.note { color: var(--gris); font-size: 0.85rem !important; line-height: 1.55; }
+
+/* Liens : soulignés d'un filet, jamais en bleu */
+.stApp a { color: var(--encre) !important; text-decoration: none; border-bottom: 1px solid var(--filet); }
+.stApp a:hover { border-bottom-color: var(--vert); }
+
+
+/* Hero : titre à gauche, carte de saisie à droite, motif de lignes de tram en fond */
+.st-key-hero {
+  padding: clamp(2.5rem, 6vw, 5rem) var(--marge) clamp(2rem, 4vw, 3rem);
+  gap: 2.5rem;
+  background-color: var(--fond);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 520' preserveAspectRatio='xMidYMid slice'%3E%3Cg fill='none' stroke='%232A3D2F' stroke-opacity='0.07' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M-20 420 C 180 380 260 250 420 240 S 700 300 820 200 S 1060 60 1220 90'/%3E%3Cpath d='M-20 120 C 160 160 300 140 430 230 S 640 420 860 400 S 1100 330 1220 360'/%3E%3Cpath d='M300 -20 C 330 120 380 200 430 240 S 520 380 500 540'/%3E%3C/g%3E%3Cg fill='%23C9A86A' fill-opacity='0.55'%3E%3Ccircle cx='420' cy='240' r='6'/%3E%3Ccircle cx='820' cy='200' r='5'/%3E%3Ccircle cx='860' cy='400' r='5'/%3E%3C/g%3E%3C/svg%3E");
+  /* le motif reste à droite, derrière la carte de saisie : il ne croise jamais le titre */
+  background-size: auto 120%;
+  background-position: right -160px center;
+  background-repeat: no-repeat;
+  border-top: none;
+}
+.st-key-hero h1.hero-titre {
+  font-family: var(--serif) !important; font-weight: 500 !important;
+  font-size: clamp(2.8rem, 6vw, 5.2rem) !important; line-height: 0.98 !important; letter-spacing: -0.01em;
+  padding: 0 !important; margin: 0;
+}
+.hero-titre em { font-style: italic; color: var(--vert); }
+.st-key-hero p.hero-texte { color: var(--texte-doux); max-width: 26rem; line-height: 1.6; margin: 1.4rem 0 0 !important; }
+p.source-donnees { color: var(--gris); font-size: 0.88rem !important; margin: 0.9rem 0 0 0.2rem !important; }
+
+
+/* Cartes : blanches, coins arrondis, ombre très légère */
+[class*="st-key-carte-"] {
+  background: var(--carte);
+  border-radius: var(--rayon-carte);
+  box-shadow: var(--ombre-carte);
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  gap: 1rem;
+}
+
+
+/* Champs : tous blancs, bordure fine, coins arrondis, liseré vert au focus */
+[data-testid="stTextInputRootElement"],
+[data-testid="stNumberInputContainer"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"] {
+  background: var(--carte) !important;
+  border: 1px solid var(--filet) !important;
+  border-radius: var(--rayon-champ) !important;
+  min-height: 2.75rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+[data-testid="stTextInputRootElement"]:focus-within,
+[data-testid="stNumberInputContainer"]:focus-within,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within,
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:focus-within {
+  border-color: var(--vert) !important; box-shadow: var(--anneau);
+}
+[data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"] { padding: 0 0.4rem 0 0.75rem; align-items: center; }
+[data-testid="stSelectbox"] .react-aria-ComboBox input { background: transparent !important; font-size: 1rem; }
+[data-testid="stTextInputRootElement"] > div,
+[data-testid="stTextInputRootElement"] input,
+[data-testid="stNumberInputField"] { background: transparent !important; font-size: 1rem; }
+[data-testid="stNumberInputStepDown"], [data-testid="stNumberInputStepUp"] {
+  background: transparent !important; color: var(--gris); border-radius: var(--rayon-champ);
+}
+[data-testid="stNumberInputStepDown"]:hover, [data-testid="stNumberInputStepUp"]:hover { color: var(--vert); background: var(--vert-pale) !important; }
+[data-testid="stForm"] { border: none; padding: 0; }
+
+
+/* Boutons en pilule : vert plein pour l'action principale, contour vert pour le reste */
+[data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-primary"] {
+  background: var(--vert) !important; border: 1px solid var(--vert) !important; color: #FFFFFF !important;
+  border-radius: var(--pilule) !important; padding: 0.8rem 1.9rem !important; margin-top: 0.4rem;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+[data-testid="stBaseButton-primaryFormSubmit"]:hover, [data-testid="stBaseButton-primary"]:hover {
+  background: var(--vert-fonce) !important; border-color: var(--vert-fonce) !important;
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(42, 61, 47, 0.18);
+}
+[data-testid="stBaseButton-primaryFormSubmit"] p, [data-testid="stBaseButton-primary"] p { font-size: 0.95rem !important; font-weight: 500; }
+
+[data-testid="stBaseButton-secondary"] {
+  background: transparent !important; border: 1px solid var(--vert) !important; color: var(--vert) !important;
+  border-radius: var(--pilule) !important; padding: 0.45rem 1.1rem !important; min-height: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+[data-testid="stBaseButton-secondary"]:hover { background: var(--vert-pale) !important; transform: translateY(-1px); }
+[data-testid="stBaseButton-secondary"] p { font-size: 0.9rem !important; }
+.st-key-exemples { gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+
+/* Messages d'erreur ou d'avertissement : un filet à gauche, sans aplat coloré */
+[data-testid="stAlertContainer"] {
+  background: transparent !important; border-left: 2px solid var(--vert); border-radius: 0; color: var(--encre);
+}
+
+
+/* Chargement : trois points, dont un doré, et « Loading... » */
+.chargement { display: flex; align-items: center; gap: 0.7rem; color: var(--vert); font-size: 0.95rem; padding: 0.6rem 0; }
+.chargement span { width: 8px; height: 8px; border-radius: 50%; background: var(--vert); animation: pulse 1s ease-in-out infinite; }
+.chargement span:nth-child(2) { animation-delay: 0.15s; }
+.chargement span:nth-child(3) { background: var(--dore); animation-delay: 0.3s; }
+.chargement b { font-weight: 500; margin-left: 0.2rem; }
+@keyframes pulse { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+
+/* Chiffres clés */
+.chiffres { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--filet); }
+.chiffre { padding: 1.3rem 1.5rem 0 0; }
+.chiffre + .chiffre { border-left: 1px solid var(--filet); padding-left: 1.5rem; }
+.chiffre b { display: block; font-family: var(--serif); font-weight: 500; font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1; color: var(--vert); }
+.chiffre span { display: block; margin-top: 0.5rem; font-size: 0.88rem; color: var(--gris); max-width: 16rem; }
+
+
+/* Résultat : le prix doit sauter aux yeux */
+.resultat p.resultat-adresse { font-size: 1rem !important; color: var(--texte-doux); margin: 0.4rem 0 0 !important; }
+.resultat p.prix-estime {
+  font-family: var(--serif); font-weight: 500; color: var(--vert); line-height: 0.95 !important; letter-spacing: -0.01em;
+  font-size: clamp(3.4rem, 8vw, 6.5rem) !important; margin: 1rem 0 0 !important;
+  display: inline-block; padding-bottom: 0.35rem; border-bottom: 3px solid var(--dore);
+}
+.resultat p.resultat-m2 { font-size: 1.05rem !important; color: var(--texte-doux); margin: 0.8rem 0 0 !important; }
+
+/* La piste : même forme pour la fourchette et la jauge « Bonne affaire ? ».
+   Bande vert pâle pour la fourchette, repère doré pour l'estimation, point foncé pour le prix demandé. */
+.piste { position: relative; height: 10px; border-radius: var(--pilule); background: var(--piste); }
+.piste-fourchette { position: absolute; top: 0; height: 10px; border-radius: var(--pilule); background: var(--vert-pale); border: 1px solid var(--vert-bord); box-sizing: border-box; }
+.piste-estimation {
+  position: absolute; top: -6px; width: 6px; height: 22px; border-radius: var(--pilule);
+  background: var(--dore); border: 2px solid var(--carte); transform: translateX(-50%);
+}
+.piste-demande {
+  position: absolute; top: -5px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--encre); border: 3px solid var(--carte); transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.fourchette { margin-top: 2.2rem; max-width: 38rem; }
+.fourchette-bornes { display: flex; justify-content: space-between; margin-top: 0.9rem; }
+.fourchette-bornes div:last-child { text-align: right; }
+.fourchette-bornes b { display: block; font-weight: 500; font-size: 1.05rem; margin-top: 0.25rem; }
+
+/* Confiance : trois petites pilules, une à trois remplies */
+.confiance { margin-bottom: 0.6rem; }
+.confiance p.confiance-niveau {
+  display: flex; align-items: center; gap: 0.9rem; margin: 0.5rem 0 0 !important;
+  font-family: var(--serif); font-size: 2rem !important; font-weight: 500; line-height: 1 !important;
+}
+.jauge { display: inline-flex; gap: 4px; }
+.jauge i { width: 1.4rem; height: 6px; border-radius: var(--pilule); background: var(--filet); }
+.jauge i.plein { background: var(--vert); }
+.confiance ul.raisons { margin: 0.9rem 0 0 !important; padding: 0 !important; list-style: none; }
+.confiance ul.raisons li { margin: 0 !important; color: var(--texte-doux); font-size: 0.92rem; line-height: 1.5; padding: 0.4rem 0; border-bottom: 1px solid var(--filet); }
+
+/* Bonne affaire ? */
+p.verdict { font-family: var(--serif); font-weight: 600; font-size: clamp(1.8rem, 3vw, 2.4rem) !important; line-height: 1.05 !important; margin: 0.6rem 0 0.8rem !important; }
+.jauge-affaire { margin: 1.6rem 0 0.5rem; }
+.jauge-affaire .piste { margin: 1rem 0 1.1rem; }
+ul.jauge-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; list-style: none; margin: 0 !important; padding: 0 !important; }
+ul.jauge-legende li { display: flex; align-items: center; gap: 0.45rem; margin: 0 !important; font-size: 0.86rem; color: var(--texte-doux); }
+ul.jauge-legende i { display: inline-block; }
+.legende-fourchette { width: 1.2rem; height: 0.6rem; border-radius: var(--pilule); background: var(--vert-pale); border: 1px solid var(--vert-bord); }
+.legende-estimation { width: 5px; height: 0.9rem; border-radius: var(--pilule); background: var(--dore); }
+.legende-demande { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--encre); }
+
+
+/* Simulateur, tableaux, cartes géographiques */
+.simulation { display: grid; grid-template-columns: 1.4fr 1fr; border-top: 1px solid var(--filet); margin-bottom: 1.5rem; }
+.simulation > div { padding-top: 1.1rem; }
+.simulation > div + div { border-left: 1px solid var(--filet); padding-left: 1.5rem; }
+.simulation b { display: block; font-family: var(--serif); font-weight: 500; font-size: clamp(2.2rem, 3.6vw, 3rem); line-height: 1; margin: 0.5rem 0 0.4rem; color: var(--vert); }
+[data-testid="stSlider"] [role="slider"] { box-shadow: none; }
+[data-testid="stDataFrame"] { border-radius: var(--rayon-champ); overflow: hidden; }
+[data-testid="stDeckGlJsonChart"] { border-radius: var(--rayon-champ); overflow: hidden; margin-top: 0.5rem; }
+.chiffres + div, [data-testid="stVegaLiteChart"] { margin-top: 0.5rem; }
+
+ul.liste-filets { list-style: none; margin: 0 !important; padding: 0 !important; border-top: 1px solid var(--filet); }
+ul.liste-filets li { margin: 0 !important; padding: 1rem 0 !important; border-bottom: 1px solid var(--filet); line-height: 1.6; color: var(--texte-doux); }
+ul.liste-filets .titre-liste { display: block; font-family: var(--serif); font-weight: 600; font-size: 1.35rem; line-height: 1.2; color: var(--encre); }
+ul.liste-filets p { margin: 0.3rem 0 0 !important; color: var(--texte-doux); }
+
+.tableau-defilant { overflow-x: auto; margin-top: 1.2rem; }
+table.tableau { width: 100%; border-collapse: collapse; font-size: 0.92rem; border: none; }
+table.tableau th, table.tableau td { border: none !important; border-bottom: 1px solid var(--filet) !important; padding: 0.75rem 0.6rem; background: none; }
+table.tableau thead th { font-size: 0.82rem; font-weight: 400; color: var(--gris); text-align: right; vertical-align: bottom; }
+table.tableau td { text-align: right; white-space: nowrap; }
+table.tableau tbody th { text-align: left; font-weight: 400; white-space: nowrap; padding-left: 0; }
+
+/* Explorer le marché : légende de la carte */
+ul.legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; list-style: none; margin: 1rem 0 0 !important; padding: 0 !important; }
+ul.legende li { display: flex; align-items: center; gap: 0.5rem; margin: 0 !important; font-size: 0.85rem; color: var(--texte-doux); }
+ul.legende i { width: 0.9rem; height: 0.9rem; border-radius: 3px; display: inline-block; }
+
+/* Comparer : deux cartes côte à côte, prix réduit pour tenir dans une demi-colonne */
+h3.titre-bien { font-family: var(--serif) !important; font-weight: 600 !important; font-size: 1.6rem !important; padding: 0 !important; margin: 0 0 0.6rem !important; }
+.comparaison .resultat p.prix-estime { font-size: clamp(2.6rem, 5vw, 4rem) !important; }
+.comparaison .fourchette { margin-top: 1.6rem; }
+
+/* À propos : les étapes du projet reliées par des flèches */
+ol.parcours { list-style: none; margin: 0 !important; padding: 0 !important; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2.2rem; border-top: 1px solid var(--filet); }
+ol.parcours li { position: relative; margin: 0 !important; padding: 1.2rem 0 0 !important; }
+ol.parcours li + li::before { content: "→"; position: absolute; left: -1.6rem; top: 1.35rem; color: var(--dore); font-size: 1.1rem; }
+ol.parcours b { display: block; font-family: var(--serif); font-weight: 600; font-size: 1.4rem; line-height: 1.2; }
+ol.parcours p { margin: 0.4rem 0 0.8rem !important; color: var(--texte-doux); font-size: 0.9rem; line-height: 1.5; }
+ol.parcours code { display: block; background: none; padding: 0; color: var(--encre); font-size: 0.78rem; }
+.parcours-sortie { display: block; color: var(--gris); font-size: 0.78rem; margin-top: 0.3rem; overflow-wrap: break-word; }
+
+
+/* Pied de page : bande verte, la couleur du logo */
+.st-key-pied { background: var(--vert); color: var(--pied-texte); padding: clamp(2.5rem, 5vw, 4rem) var(--marge) 2.2rem; gap: 0; border-top: 3px solid var(--dore); }
+.pied-grille { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2.5rem; align-items: end; }
+.pied-marque { display: flex; align-items: center; gap: 0.75rem; }
+.pied-marque img { height: 34px; width: 34px; }
+.st-key-pied p.pied-titre { font-family: var(--serif); font-weight: 600; font-size: 1.6rem !important; line-height: 1.1; margin: 0 !important; color: var(--pied-texte); }
+.st-key-pied p { color: var(--pied-texte); margin: 0.4rem 0 0 !important; }
+.st-key-pied .etiquette { color: var(--pied-doux); }
+.st-key-pied a { color: var(--pied-texte) !important; border-bottom-color: var(--dore); }
+
+
+/* Grand écran */
+@media (min-width: 1920px) {
+  html:root { font-size: 18px !important; }
+  :root { --largeur: 1440px; }
+}
+
+/* Tablette : les étapes du projet s'empilent */
+@media (max-width: 900px) {
+  ol.parcours { grid-template-columns: 1fr; gap: 0; }
+  ol.parcours li { padding: 1.1rem 0 !important; border-bottom: 1px solid var(--filet); }
+  ol.parcours li + li::before { content: "↓"; left: auto; right: 0; top: 1.2rem; }
+}
+
+/* Téléphone : une seule colonne, rien ne déborde */
+@media (max-width: 640px) {
+  .chiffres { grid-template-columns: 1fr; }
+  .chiffre + .chiffre { border-left: none; border-top: 1px solid var(--filet); padding-left: 0; }
+  .chiffre { padding: 1rem 0; }
+  [data-testid="stTabs"] [role="tablist"] { gap: 1.3rem; }
+  .simulation { grid-template-columns: 1fr; }
+  .simulation > div + div { border-left: none; padding-left: 0; }
+  .pied-grille { grid-template-columns: 1fr; gap: 1.2rem; }
+  .bandeau nav { gap: 1rem; }
+  .marque-nom { font-size: 1.2rem; }
+  [class*="st-key-carte-"] { border-radius: 12px; }
+}
+@media (max-width: 420px) {
+  .marque-nom { font-size: 1.05rem; }
+  .marque img { height: 34px; width: 34px; }
+  .st-key-hero { background-image: none; }
+}
+@media (max-width: 360px) {
+  .marque-nom { display: none; }
+}

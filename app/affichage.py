@@ -1,7 +1,7 @@
-"""Composants d'interface : résultat, confiance et graphiques, dans le style « Édition ».
+"""Composants d'interface : résultat, confiance, jauge et graphiques.
 
-Le HTML produit ici est mis en forme par app/style.css ; les graphiques Altair reprennent
-la même palette (encre, gris chauds, un seul accent) et la même police.
+Le HTML produit ici est mis en forme par assets/style.css ; les graphiques Altair reprennent
+la même palette (le vert et le doré du logo, l'encre, des gris chauds) et la même police.
 """
 from html import escape
 
@@ -9,10 +9,11 @@ import altair as alt
 import pandas as pd
 
 ENCRE = "#141414"
-GRIS = "#8C877F"
+GRIS = "#6E6A62"
 GRIS_CLAIR = "#B9B4AC"
 FILET = "#D6D2CB"
-ACCENT = "#1F3B2D"  # vert bouteille : la seule couleur, réservée à ce qui compte
+ACCENT = "#2A3D2F"  # vert du logo : la couleur principale, réservée à ce qui compte
+DORE = "#C9A86A"  # doré du logo : détails sans texte
 POLICE = "Hanken Grotesk"
 
 # nombre de traits remplis de la jauge, pour chaque niveau de confiance
@@ -41,16 +42,16 @@ def position_estimation(prix, prix_bas, prix_haut):
 
 
 def carte_resultat(adresse, prix, prix_m2, prix_bas, prix_haut, euros):
-    """Prix en très grand, prix au m², puis la fourchette dessinée comme un filet gradué."""
+    """Prix en très grand, prix au m², puis la fourchette : une piste vert pâle, l'estimation en repère doré."""
     position = position_estimation(prix, prix_bas, prix_haut)
     return f"""
 <div class="resultat">
-  <span class="etiquette">Estimation</span>
+  <span class="etiquette">Prix estimé</span>
   <p class="resultat-adresse">{escape(adresse)}</p>
-  <p class="resultat-prix">{euros(prix)}</p>
+  <p class="prix-estime">{euros(prix)}</p>
   <p class="resultat-m2">{euros(prix_m2)} le m²</p>
   <div class="fourchette">
-    <div class="fourchette-filet"><span class="fourchette-repere" style="left: {position:.1f}%"></span></div>
+    <div class="piste"><span class="piste-fourchette" style="left: 0; width: 100%"></span><span class="piste-estimation" style="left: {position:.1f}%"></span></div>
     <div class="fourchette-bornes">
       <div><span class="etiquette">Fourchette basse</span><b>{euros(prix_bas)}</b></div>
       <div><span class="etiquette">Fourchette haute</span><b>{euros(prix_haut)}</b></div>
@@ -114,7 +115,7 @@ def graphique_facteurs(facteurs):
     )
     couleur = alt.Color("sens:N", scale=alt.Scale(domain=["hausse", "baisse"], range=[ENCRE, GRIS_CLAIR]), legend=None)
     barres = base.mark_bar(height={"band": 0.42}).encode(
-        x=alt.X("effet:Q", title="Effet sur le prix, en milliers d'euros", scale=alt.Scale(domain=domaine, nice=False),
+        x=alt.X("effet:Q", title="Effet sur le prix, en k€", scale=alt.Scale(domain=domaine, nice=False),
                 axis=alt.Axis(values=graduations(*domaine), grid=True,
                               labelExpr="datum.value == 0 ? '0' : format(datum.value, '+~g')")),
         color=couleur,
@@ -200,7 +201,7 @@ def graphique_comparaison(resultats):
 
 
 # du papier au vert bouteille : une seule teinte, de plus en plus foncée avec le prix
-RAMPE = ["#DCE3D9", "#B4C4B2", "#82A084", "#4F7259", "#1F3B2D"]
+RAMPE = ["#DCE3D9", "#B4C4B2", "#82A084", "#4F7259", "#2A3D2F"]
 COULEURS_TYPES = {"Appartement": ACCENT, "Maison": GRIS}
 AXE_EUROS = "replace(format(datum.value, ',.0f'), ',', ' ') + ' €'"
 
@@ -379,18 +380,18 @@ def positions_jauge(prix, prix_bas, prix_haut, prix_demande, marge=0.08):
 
 
 def jauge_affaire(prix, prix_bas, prix_haut, prix_demande, euros):
-    """Un filet gradué : la fourchette en aplat, l'estimation en trait d'accent, le prix demandé en point encre."""
+    """La même piste que la fourchette du résultat, élargie pour placer aussi le prix demandé."""
     p = positions_jauge(prix, prix_bas, prix_haut, prix_demande)
     gauche, largeur = p["fourchette"]
     return f"""
 <div class="jauge-affaire">
-  <div class="jauge-piste">
-    <span class="jauge-fourchette" style="left: {gauche:.1f}%; width: {largeur:.1f}%"></span>
-    <span class="jauge-estimation" style="left: {p["estimation"]:.1f}%"></span>
-    <span class="jauge-demande" style="left: {p["demande"]:.1f}%"></span>
+  <div class="piste">
+    <span class="piste-fourchette" style="left: {gauche:.1f}%; width: {largeur:.1f}%"></span>
+    <span class="piste-estimation" style="left: {p["estimation"]:.1f}%"></span>
+    <span class="piste-demande" style="left: {p["demande"]:.1f}%"></span>
   </div>
   <ul class="jauge-legende">
-    <li><i class="legende-fourchette"></i>Fourchette : {euros(prix_bas)} – {euros(prix_haut)}</li>
+    <li><i class="legende-fourchette"></i>Fourchette : {euros(prix_bas)} à {euros(prix_haut)}</li>
     <li><i class="legende-estimation"></i>Estimation : {euros(prix)}</li>
     <li><i class="legende-demande"></i>Prix demandé : {euros(prix_demande)}</li>
   </ul>

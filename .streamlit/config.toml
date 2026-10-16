@@ -1,13 +1,13 @@
-# Thème « Édition » : papier, encre et gris chauds ; une seule couleur d'accent, posée dans app/style.css
+# Thème : fond papier, texte encre, un seul accent vert ; le reste de la mise en forme est dans app/assets/style.css
 [theme]
 base = "light"
-primaryColor = "#141414"
+primaryColor = "#1F3B2D"
 backgroundColor = "#F4F2EE"
-secondaryBackgroundColor = "#E9E6E0"
+secondaryBackgroundColor = "#FFFFFF"
 textColor = "#141414"
 borderColor = "#D6D2CB"
 linkColor = "#141414"
-baseRadius = "0.125rem"
+baseRadius = "0.625rem"
 # deux polices libres de Google Fonts : un serif pour les titres, un sans-serif pour le texte
 font = "Hanken Grotesk:https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap"
 headingFont = "Cormorant Garamond:https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"
