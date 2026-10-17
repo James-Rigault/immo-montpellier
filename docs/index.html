@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valeur – Estimation immobilière à Montpellier</title>
+<meta name="description" content="Estimez le prix d'un logement à Montpellier à partir de 23 338 ventes réelles, avec une fourchette et l'explication de chaque facteur.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<!-- Aperçu lors d'un partage (LinkedIn et autres) : adresses absolues, obligatoires pour og:image -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Valeur – Estimation immobilière à Montpellier">
+<meta property="og:description" content="Estimez le prix d'un logement à Montpellier à partir de 23 338 ventes réelles, avec une fourchette et l'explication de chaque facteur.">
+<meta property="og:image" content="https://james-rigault.github.io/immo-montpellier/assets/apercu.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Combien vaut votre logement ? Montpellier, 23 338 ventes réelles">
+<meta property="og:url" content="https://james-rigault.github.io/immo-montpellier/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+:root{--green:#2A3D2F;--green-deep:#1B271F;--green-card:#24342A;--cream:#F4F2EC;--gold:#C9A86A;--gold-text:#7A5C24;--muted-dark:#5E6B60;--muted-light:#CDD3C9}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--green-deep);color:var(--cream);font-family:Manrope,system-ui,sans-serif;overflow-x:hidden}
+a{color:var(--gold)}a:hover{color:#E3CC9C}
+img,svg{display:block}
+main,footer{overflow-x:clip}
+.wrap{max-width:1280px;margin:0 auto}
+.disp{font-family:'Big Shoulders Display',Impact,sans-serif;text-transform:uppercase;line-height:.88;letter-spacing:-.01em;font-weight:900}
+.outline{color:transparent;-webkit-text-stroke:2px var(--cream)}
+.outline-dark{color:transparent;-webkit-text-stroke:2px var(--green)}
+.kicker{margin:0 0 16px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;font-size:14px}
+
+/* Animations */
+@keyframes rise{from{opacity:0;transform:translateY(70px)}to{opacity:1;transform:none}}
+@keyframes zoomin{from{opacity:0;transform:scale(1.35);letter-spacing:.12em}to{opacity:1;transform:none}}
+@keyframes float3d{0%,100%{transform:perspective(1000px) rotateY(-20deg) rotateX(8deg) translateY(0)}50%{transform:perspective(1000px) rotateY(16deg) rotateX(-5deg) translateY(-18px)}}
+@keyframes spin3d{0%{transform:perspective(1000px) rotateY(-40deg) rotateX(12deg) scale(.82)}50%{transform:perspective(1000px) rotateY(0) rotateX(0) scale(1.04)}100%{transform:perspective(1000px) rotateY(38deg) rotateX(-10deg) scale(.9)}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.95;transform:scale(1.08)}}
+.float{animation:float3d 8s ease-in-out infinite}
+.glow{animation:pulse 5s ease-in-out infinite}
+.bar{transform-box:fill-box;transform-origin:50% 100%;animation:grow 1.3s cubic-bezier(.2,.8,.2,1) both}
+.feat{view-timeline-name:--feat}
+/* Navigateurs avec animations liées au défilement */
+@supports (animation-timeline: view()){
+  .reveal{animation:rise linear both;animation-timeline:view();animation-range:entry 5% cover 32%}
+  .bigword{animation:zoomin linear both;animation-timeline:view();animation-range:entry 0% cover 38%}
+  .tilt{animation:spin3d linear both;animation-timeline:--feat;animation-range:contain 0% contain 100%}
+}
+/* Repli (IntersectionObserver) pour les autres navigateurs */
+.no-sdt .reveal,.no-sdt .bigword{opacity:0}
+.no-sdt .reveal.in{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.no-sdt .bigword.in{animation:zoomin 1s cubic-bezier(.2,.7,.2,1) both}
+
+/* Composants */
+.btn{display:inline-block;text-decoration:none;border-radius:999px;font-weight:800;transition:transform .25s,box-shadow .25s}
+.btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 18px 40px rgba(201,168,106,.4);color:var(--green-deep)}
+.btn-gold{background:var(--gold);color:var(--green-deep)}
+.btn-ghost{color:var(--cream);border:1.5px solid rgba(244,242,236,.3);font-weight:700}
+.btn-ghost:hover{color:var(--cream);box-shadow:none}
+.card{transition:transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s}
+.card:hover{transform:translateY(-6px);box-shadow:0 30px 60px rgba(27,39,31,.22)}
+.pill{font:700 15px/1 Manrope,sans-serif;padding:14px 20px;min-height:46px;border-radius:999px;border:1.5px solid rgba(42,61,47,.3);background:transparent;color:var(--green);cursor:pointer;transition:background .25s,border-color .25s,transform .2s}
+.pill:hover{transform:translateY(-2px);border-color:var(--green)}
+.pill[aria-pressed="true"]{background:var(--green);color:var(--cream);border-color:var(--green)}
+.pill:focus-visible,.btn:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+/* En-tête */
+header{position:sticky;top:0;z-index:10;background:rgba(27,39,31,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(244,242,236,.08)}
+nav{padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px}
+.brand{display:flex;align-items:center;gap:12px;color:var(--cream);text-decoration:none}
+.brand:hover{color:var(--cream)}
+.navlinks{display:flex;flex-wrap:wrap;align-items:center;gap:8px 26px;font-size:15px;font-weight:600}
+.navlinks a:not(.btn){color:#D9DDD5;text-decoration:none}
+
+/* Hero */
+.hero{position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center;padding:72px 24px 96px}
+.hero-grid{position:relative;width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:48px}
+
+/* Chiffres */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px}
+.stat{border:1px solid rgba(244,242,236,.12);border-radius:22px;padding:30px;background:var(--green-card)}
+.stat .disp{font-size:76px}
+.stat p{margin:10px 0 0;color:#B9C2B6;font-size:15px;line-height:1.5}
+
+/* Étapes */
+.featgrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px}
+.step{min-height:92vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+.step h2{margin:0;font-size:clamp(52px,11vw,168px);color:var(--green)}
+.step p.txt{margin:26px 0 0;max-width:470px;font-size:20px;line-height:1.55;color:#3E4F42;font-weight:500}
+.sticky{position:sticky;top:10vh;height:80vh;display:flex;align-items:center;justify-content:center}
+
+/* Démo */
+.wcard{background:#fff;border:1px solid rgba(42,61,47,.1);border-radius:28px;padding:clamp(24px,4vw,44px);box-shadow:0 10px 30px rgba(27,39,31,.06);min-width:0}
+
+/* FAQ */
+details{border-bottom:1px solid rgba(244,242,236,.15);padding:26px 0}
+summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:clamp(20px,2.4vw,26px);font-weight:700}
+summary::-webkit-details-marker{display:none}
+.plus{font-size:34px;font-weight:400;color:var(--gold);transition:transform .3s}
+details[open] .plus{transform:rotate(45deg)}
+details p{margin:16px 0 0;max-width:760px;font-size:17px;line-height:1.6;color:var(--muted-light)}
+
+@media (max-width:860px){
+  .sticky{position:relative;top:0;height:auto;padding:40px 0}
+  .featgrid{grid-template-columns:minmax(0,1fr)}
+  .step{min-height:auto;padding:48px 0}
+}
+@media (max-width:600px){
+  .navlinks a:not(.btn){display:none}
+  .brand .disp{font-size:24px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .no-sdt .reveal,.no-sdt .bigword{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<!-- Logo Valeur, réutilisé plusieurs fois -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="10" fill="#2A3D2F"/>
+    <path d="M12 30 L32 13 L52 30 L52 51 L12 51 Z" fill="none" stroke="#F4F2EC" stroke-width="3.2" stroke-linejoin="miter"/>
+    <rect x="20" y="40" width="5.5" height="9.4" fill="#F4F2EC"/>
+    <rect x="29.25" y="34" width="5.5" height="15.4" fill="#F4F2EC"/>
+    <rect x="38.5" y="28" width="5.5" height="21.4" fill="#C9A86A"/>
+  </symbol>
+</svg>
+
+<header>
+  <nav class="wrap">
+    <a href="#top" class="brand">
+      <svg width="40" height="40" role="img" aria-label="Logo Valeur"><use href="#logo"/></svg>
+      <span class="disp" style="font-size:30px">Valeur</span>
+    </a>
+    <div class="navlinks">
+      <a href="#methode">Méthode</a>
+      <a href="#demo">Démo</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://estimateur-immo-montpellier.streamlit.app" class="btn btn-gold" style="padding:12px 20px">Estimer mon bien</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+<section id="top" class="hero">
+  <div aria-hidden="true" class="glow" style="position:absolute;right:-8%;top:4%;width:780px;height:780px;max-width:120vw;border-radius:50%;background:radial-gradient(circle,rgba(201,168,106,.5) 0%,rgba(201,168,106,.16) 38%,rgba(27,39,31,0) 70%)"></div>
+  <div class="wrap hero-grid">
+    <div style="flex:1 1 520px;min-width:0">
+      <p class="kicker reveal" style="color:var(--gold);letter-spacing:.22em">Montpellier · 23 338 ventes réelles</p>
+      <h1 class="disp bigword" style="margin:0;font-size:clamp(56px,10.5vw,164px)">Combien vaut<br><span class="outline">votre</span> logement&#8202;?</h1>
+      <p class="reveal" style="margin:30px 0 0;max-width:520px;font-size:19px;line-height:1.55;color:var(--muted-light)">Tapez une adresse. Obtenez un prix, une fourchette et l'explication de chaque euro, à partir des vraies ventes du quartier.</p>
+      <div class="reveal" style="margin-top:36px;display:flex;flex-wrap:wrap;gap:14px">
+        <a href="https://estimateur-immo-montpellier.streamlit.app" class="btn btn-gold" style="padding:18px 30px;font-size:17px">Lancer l'estimation</a>
+        <a href="#demo" class="btn btn-ghost" style="padding:18px 26px;font-size:17px">Voir un exemple</a>
+      </div>
+    </div>
+    <div style="flex:1 1 380px;min-width:0;display:flex;justify-content:center">
+      <div class="float" style="width:min(400px,76vw)">
+        <svg viewBox="0 0 64 64" role="img" aria-label="Logo Valeur : une maison contenant un graphique en barres croissant" style="width:100%;height:auto;filter:drop-shadow(0 40px 50px rgba(0,0,0,.55)) drop-shadow(0 0 1px rgba(244,242,236,.35))">
+          <rect width="64" height="64" rx="10" fill="#2A3D2F"/>
+          <path d="M12 30 L32 13 L52 30 L52 51 L12 51 Z" fill="none" stroke="#F4F2EC" stroke-width="3.2" stroke-linejoin="miter"/>
+          <rect class="bar" x="20" y="40" width="5.5" height="9.4" fill="#F4F2EC" style="animation-delay:.3s"/>
+          <rect class="bar" x="29.25" y="34" width="5.5" height="15.4" fill="#F4F2EC" style="animation-delay:.5s"/>
+          <rect class="bar" x="38.5" y="28" width="5.5" height="21.4" fill="#C9A86A" style="animation-delay:.7s"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-label="Chiffres clés" style="padding:40px 24px 110px">
+  <div class="wrap stats">
+    <div class="stat card reveal"><div class="disp">23 338</div><p>ventes réelles (DVF, 2021–2025), enrichies avec OpenStreetMap</p></div>
+    <div class="stat card reveal"><div class="disp" style="color:var(--gold)">10,5 %</div><p>d'erreur médiane sur les ventes de 2025, jamais vues par le modèle</p></div>
+    <div class="stat card reveal"><div class="disp">48 %</div><p>des estimations à moins de 10 % du vrai prix</p></div>
+    <div class="stat card reveal"><div class="disp">7 / 10</div><p>vrais prix tombent dans la fourchette proposée</p></div>
+  </div>
+</section>
+
+<section id="methode" class="feat" style="position:relative;padding:0 24px;background:linear-gradient(180deg,#1B271F 0%,#6F7D6C 8%,#E4E2D8 18%,#F4F2EC 26%,#F4F2EC 100%);color:var(--green)">
+  <div class="wrap featgrid">
+    <div>
+      <div class="step">
+        <p class="kicker reveal" style="color:var(--gold-text)">Étape 01</p>
+        <h2 class="disp bigword">L'adresse</h2>
+        <p class="txt reveal">Commencez à taper, l'application propose les adresses officielles de Montpellier grâce au géocodage public de l'IGN.</p>
+      </div>
+      <div class="step">
+        <p class="kicker reveal" style="color:var(--gold-text)">Étape 02</p>
+        <h2 class="disp bigword">Le prix</h2>
+        <p class="txt reveal">Un modèle LightGBM, entraîné sur 2021–2024 et validé dans le temps, donne un prix, un prix au m² et une fourchette basse–haute.</p>
+      </div>
+      <div class="step">
+        <p class="kicker reveal" style="color:var(--gold-text)">Étape 03</p>
+        <h2 class="disp bigword">Le pourquoi</h2>
+        <p class="txt reveal">Chaque estimation est décomposée facteur par facteur avec SHAP&#8239;: le tram, les commerces, la surface. Plus un indicateur de confiance.</p>
+      </div>
+    </div>
+    <div style="order:-1">
+      <div class="sticky">
+        <div class="tilt" id="tilt" style="width:min(440px,70vw)">
+          <svg viewBox="0 0 64 64" role="img" aria-label="Logo Valeur" style="width:100%;height:auto;filter:drop-shadow(0 50px 50px rgba(27,39,31,.35))"><use href="#logo"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" style="padding:120px 24px;background:var(--cream);color:var(--green)">
+  <div class="wrap">
+    <p class="kicker reveal" style="color:var(--gold-text)">Démo</p>
+    <h2 class="disp bigword" style="margin:0 0 18px;font-size:clamp(56px,8vw,120px)">Essayez un quartier</h2>
+    <p class="reveal" style="margin:0 0 40px;color:var(--muted-dark);font-size:14px">Exemple d'affichage, chiffres fictifs. Les vraies estimations sont dans l'application.</p>
+    <div class="reveal" id="tabs" role="group" aria-label="Choisir un quartier" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:28px"></div>
+    <div class="reveal" style="display:flex;flex-wrap:wrap;gap:20px">
+      <div class="wcard card" style="flex:1 1 520px">
+        <p id="bien" style="margin:0;color:var(--muted-dark);font-size:15px;font-weight:600"></p>
+        <div id="prix" class="disp" aria-live="polite" style="margin-top:14px;font-size:clamp(72px,9vw,128px)">0 €</div>
+        <p style="margin:10px 0 0;font-size:17px;color:#4A584D">soit <strong id="m2"></strong> le m²</p>
+        <div style="margin-top:40px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--muted-dark);text-transform:uppercase;letter-spacing:.1em">
+            <span id="bas"></span><span id="haut"></span>
+          </div>
+          <div style="position:relative;height:12px;margin-top:12px;border-radius:999px;background:linear-gradient(90deg,rgba(201,168,106,.3),var(--gold),rgba(201,168,106,.3))">
+            <div id="marker" style="position:absolute;top:50%;left:0;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--green);box-shadow:0 0 0 6px rgba(42,61,47,.14),0 8px 18px rgba(27,39,31,.3)"></div>
+          </div>
+        </div>
+        <div id="conf" style="margin-top:34px;display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;font-weight:800;font-size:14px"></div>
+      </div>
+      <div class="wcard card" style="flex:1 1 400px">
+        <h3 class="disp" style="margin:0 0 28px;font-size:40px;font-weight:800">Pourquoi ce prix&#8202;?</h3>
+        <div id="facteurs" style="display:flex;flex-direction:column;gap:22px"></div>
+        <p style="margin:28px 0 0;font-size:13px;color:var(--muted-dark);line-height:1.5">Doré&#8239;: fait monter le prix. Vert&#8239;: le fait baisser. Valeurs SHAP en k€.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-label="Ventes comparables" style="overflow:hidden;padding:40px 24px 130px;position:relative;background:linear-gradient(180deg,#F4F2EC 0%,#F4F2EC 82%,#1B271F 100%);color:var(--green)">
+  <div aria-hidden="true" style="position:absolute;left:50%;top:35%;width:900px;height:420px;max-width:100vw;transform:translateX(-50%);background:radial-gradient(ellipse,rgba(201,168,106,.28),rgba(244,242,236,0) 70%)"></div>
+  <div class="wrap" style="position:relative">
+    <h2 class="disp bigword" style="margin:0 0 50px;font-size:clamp(56px,8vw,120px);text-align:center">Les voisins <span class="outline-dark">ont vendu</span></h2>
+    <div id="voisins" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:18px"></div>
+    <p style="margin:22px 0 0;text-align:center;font-size:13px;color:var(--muted-dark)">Exemple d'affichage, chiffres fictifs. Dans l'app, les ventes sont réelles et reliées à une carte.</p>
+  </div>
+</section>
+
+<section id="faq" style="padding:90px 24px 120px">
+  <div style="max-width:1100px;margin:0 auto">
+    <h2 class="disp bigword" style="margin:0 0 56px;font-size:clamp(52px,11vw,176px)">Foire aux<br><span class="outline">questions</span></h2>
+    <div style="border-top:1px solid rgba(244,242,236,.15)">
+      <details class="reveal"><summary>D'où viennent les données&#8239;?<span class="plus" aria-hidden="true">+</span></summary>
+        <p>Des Demandes de valeurs foncières (DVF, data.gouv.fr) : 23 338 ventes à Montpellier entre 2021 et 2025, enrichies avec OpenStreetMap (tram, centre, écoles, commerces).</p></details>
+      <details class="reveal"><summary>L'estimation est-elle fiable&#8239;?<span class="plus" aria-hidden="true">+</span></summary>
+        <p>Sur les ventes de 2025, jamais vues pendant l'entraînement, l'erreur médiane est de 10,5 % et 48 % des estimations sont à moins de 10 % du vrai prix. L'indicateur de confiance prévient quand un bien est atypique.</p></details>
+      <details class="reveal"><summary>Ça remplace un agent immobilier&#8239;?<span class="plus" aria-hidden="true">+</span></summary>
+        <p>Non. Le modèle ne voit ni l'état du logement, ni l'étage, ni la vue. C'est un point de départ chiffré et expliqué, pas une expertise.</p></details>
+      <details class="reveal"><summary>Quelles villes sont couvertes&#8239;?<span class="plus" aria-hidden="true">+</span></summary>
+        <p>Montpellier uniquement, appartements et maisons.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer style="position:relative;padding:120px 24px 48px;text-align:center;overflow:hidden">
+  <div aria-hidden="true" class="glow" style="position:absolute;left:50%;bottom:-380px;width:1000px;height:700px;max-width:160vw;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(201,168,106,.55),rgba(201,168,106,.16) 40%,rgba(27,39,31,0) 70%)"></div>
+  <div style="position:relative">
+    <h2 class="disp bigword" style="margin:0;font-size:clamp(56px,12vw,190px)">Estimez en<br>30 secondes</h2>
+    <a href="https://estimateur-immo-montpellier.streamlit.app" class="btn reveal" style="margin-top:44px;background:var(--cream);color:var(--green-deep);padding:20px 36px;font-size:18px">Ouvrir l'estimateur</a>
+    <div style="margin-top:90px;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;font-size:14px;color:var(--muted-light)">
+      <span>Projet de James Rigault</span>
+      <a href="https://github.com/James-Rigault/immo-montpellier">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var GOLD = '#C9A86A', GREEN = '#2A3D2F';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // --- Repli pour les navigateurs sans animations liées au défilement ---
+  var sdt = window.CSS && CSS.supports && CSS.supports('animation-timeline: view()');
+  if (!sdt) {
+    document.documentElement.classList.add('no-sdt');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.reveal, .bigword').forEach(function (el) { io.observe(el); });
+
+    var feat = document.getElementById('methode'), tilt = document.getElementById('tilt');
+    var onScroll = function () {
+      var r = feat.getBoundingClientRect(), h = window.innerHeight;
+      var p = Math.min(Math.max(-r.top / (r.height - h), 0), 1);
+      var ry = -40 + 78 * p, rx = 12 - 22 * p, s = 0.82 + 0.22 * Math.sin(Math.PI * p);
+      tilt.style.transform = 'perspective(1000px) rotateY(' + ry + 'deg) rotateX(' + rx + 'deg) scale(' + s + ')';
+    };
+    if (!reduce) { window.addEventListener('scroll', onScroll, { passive: true }); onScroll(); }
+  }
+
+  // --- Démo (chiffres fictifs) ---
+  var exemples = [
+    { label: 'Écusson', bien: '12 rue de l’Aiguillerie · Appartement · 48 m² · 2 pièces', prix: 214000, bas: 188000, haut: 241000, m2: '4 458 €', conf: 'élevée',
+      f: [['Proximité du centre', 18], ['Commerces à pied', 9], ['Surface', -6], ['Tram à 300 m', 4]] },
+    { label: 'Port Marianne', bien: 'Avenue Raymond Dugrand · Appartement · 65 m² · 3 pièces', prix: 278000, bas: 249000, haut: 309000, m2: '4 277 €', conf: 'élevée',
+      f: [['Emplacement dans la ville', 14], ['Tram à 250 m', 8], ['Parking', 6], ['Surface', -5]] },
+    { label: 'Beaux-Arts', bien: 'Rue Proudhon · Maison · 92 m² · 4 pièces', prix: 412000, bas: 352000, haut: 468000, m2: '4 478 €', conf: 'moyenne',
+      f: [['Emplacement dans la ville', 22], ['Surface', -9], ['Écoles proches', 7], ['Dépendances', 5]] }
+  ];
+  var eur = function (n) { return Math.round(n).toLocaleString('fr-FR').replace(/ | /g, ' ') + ' €'; };
+  var $ = function (id) { return document.getElementById(id); };
+  var tabs = $('tabs'), raf;
+
+  exemples.forEach(function (ex, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pill'; b.textContent = ex.label;
+    b.addEventListener('click', function () { show(i); });
+    tabs.appendChild(b);
+  });
+
+  function show(i) {
+    var ex = exemples[i];
+    Array.prototype.forEach.call(tabs.children, function (b, j) { b.setAttribute('aria-pressed', j === i ? 'true' : 'false'); });
+    $('bien').textContent = ex.bien;
+    $('m2').textContent = ex.m2;
+    $('bas').textContent = 'Bas · ' + eur(ex.bas);
+    $('haut').textContent = 'Haut · ' + eur(ex.haut);
+    var high = ex.conf === 'élevée', c = $('conf');
+    c.style.background = high ? 'rgba(42,61,47,.1)' : 'rgba(201,168,106,.22)';
+    c.style.color = high ? GREEN : '#6B4F1C';
+    c.innerHTML = '<span aria-hidden="true" style="width:9px;height:9px;border-radius:50%;background:currentColor"></span>Confiance ' + ex.conf;
+
+    var max = Math.max.apply(null, ex.f.map(function (x) { return Math.abs(x[1]); }));
+    $('facteurs').innerHTML = ex.f.map(function (x) {
+      var v = x[1], pos = v > 0;
+      return '<div><div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:600">' +
+        '<span>' + x[0] + '</span><span style="font-weight:800;color:' + (pos ? '#7A5C24' : GREEN) + '">' + (pos ? '+' : '−') + Math.abs(v) + ' k€</span></div>' +
+        '<div style="margin-top:8px;height:10px;border-radius:999px;background:rgba(42,61,47,.07)">' +
+        '<div class="fbar" data-w="' + (Math.abs(v) / max * 100) + '" style="height:100%;width:0;border-radius:999px;background:' + (pos ? GOLD : GREEN) + '"></div></div></div>';
+    }).join('');
+
+    var pct = (ex.prix - ex.bas) / (ex.haut - ex.bas) * 100;
+    var bars = document.querySelectorAll('.fbar');
+    cancelAnimationFrame(raf);
+    var t0 = performance.now(), dur = reduce ? 1 : 1200;
+    (function step(t) {
+      var k = Math.min((t - t0) / dur, 1), e = 1 - Math.pow(1 - k, 3);
+      $('prix').textContent = eur(ex.prix * e);
+      $('marker').style.left = (pct * e) + '%';
+      bars.forEach(function (b) { b.style.width = (b.dataset.w * e) + '%'; });
+      if (k < 1) raf = requestAnimationFrame(step);
+    })(t0);
+  }
+  show(1);
+
+  // --- Ventes comparables (chiffres fictifs) ---
+  var voisins = [[1, 3980, 'Appartement · 52 m²'], [2, 4310, 'Appartement · 61 m²'], [3, 4520, 'Appartement · 44 m²'], [4, 4150, 'Appartement · 70 m²'], [5, 4690, 'Appartement · 39 m²']];
+  $('voisins').innerHTML = voisins.map(function (v, j) {
+    var h = 8 + (v[1] - 3900) / 800 * 22, y = 49.4 - h;
+    return '<div class="card reveal" style="background:#fff;border:1px solid rgba(42,61,47,.1);border-radius:22px;padding:24px 20px;text-align:center;animation-delay:' + (j * 0.08) + 's">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true" style="width:72px;height:72px;margin:0 auto"><rect width="64" height="64" rx="10" fill="#2A3D2F"/>' +
+      '<path d="M12 30 L32 13 L52 30 L52 51 L12 51 Z" fill="none" stroke="#F4F2EC" stroke-width="3.2"/>' +
+      '<rect x="26" y="' + y.toFixed(1) + '" width="12" height="' + h.toFixed(1) + '" fill="#C9A86A"/></svg>' +
+      '<div style="margin-top:12px;font-size:13px;font-weight:800;color:#7A5C24">N° ' + v[0] + '</div>' +
+      '<div class="disp" style="margin-top:6px;font-size:34px;font-weight:800">' + v[1].toLocaleString('fr-FR').replace(/ | /g, ' ') + ' €/m²</div>' +
+      '<div style="margin-top:6px;font-size:13px;color:#5E6B60;line-height:1.5">' + v[2] + '</div></div>';
+  }).join('');
+  if (!sdt) document.querySelectorAll('#voisins .reveal').forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>

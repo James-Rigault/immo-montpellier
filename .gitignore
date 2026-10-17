@@ -223,6 +223,8 @@ data/raw/
 data/processed/
 .venv/
 *.html
+# la page vitrine, publiée avec GitHub Pages
+!docs/index.html
 data/external/
 cache/
 models/

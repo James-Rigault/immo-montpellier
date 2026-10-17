@@ -2,6 +2,8 @@
 
 Estimation du prix d'un appartement ou d'une maison à Montpellier à partir de son adresse. L'application donne un prix, une fourchette, le détail de ce qui fait monter ou baisser ce prix, et les ventes réelles les plus proches.
 
+Page de présentation : https://james-rigault.github.io/immo-montpellier/
+
 Application en ligne : https://estimateur-immo-montpellier.streamlit.app
 
 
