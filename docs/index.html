@@ -51,6 +51,9 @@ main,footer{overflow-x:clip}
   .bigword{animation:zoomin linear both;animation-timeline:view();animation-range:entry 0% cover 38%}
   .tilt{animation:spin3d linear both;animation-timeline:--feat;animation-range:contain 0% contain 100%}
 }
+/* Haut de page : apparition au chargement, pas au défilement (sinon les boutons restent à moitié transparents
+   tant qu'on n'a pas fait défiler la page) */
+.intro{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
 /* Repli (IntersectionObserver) pour les autres navigateurs */
 .no-sdt .reveal,.no-sdt .bigword{opacity:0}
 .no-sdt .reveal.in{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
@@ -60,8 +63,9 @@ main,footer{overflow-x:clip}
 .btn{display:inline-block;text-decoration:none;border-radius:999px;font-weight:800;transition:transform .25s,box-shadow .25s}
 .btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 18px 40px rgba(201,168,106,.4);color:var(--green-deep)}
 .btn-gold{background:var(--gold);color:var(--green-deep)}
-.btn-ghost{color:var(--cream);border:1.5px solid rgba(244,242,236,.3);font-weight:700}
-.btn-ghost:hover{color:var(--cream);box-shadow:none}
+.hero .btn-gold{box-shadow:0 12px 32px rgba(201,168,106,.35)}
+.btn-ghost{color:var(--cream);border:1.5px solid rgba(244,242,236,.6);background:rgba(244,242,236,.06);font-weight:700}
+.btn-ghost:hover{color:var(--cream);border-color:var(--cream);background:rgba(244,242,236,.14);box-shadow:none}
 .card{transition:transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s}
 .card:hover{transform:translateY(-6px);box-shadow:0 30px 60px rgba(27,39,31,.22)}
 .pill{font:700 15px/1 Manrope,sans-serif;padding:14px 20px;min-height:46px;border-radius:999px;border:1.5px solid rgba(42,61,47,.3);background:transparent;color:var(--green);cursor:pointer;transition:background .25s,border-color .25s,transform .2s}
@@ -152,10 +156,10 @@ details p{margin:16px 0 0;max-width:760px;font-size:17px;line-height:1.6;color:v
   <div aria-hidden="true" class="glow" style="position:absolute;right:-8%;top:4%;width:780px;height:780px;max-width:120vw;border-radius:50%;background:radial-gradient(circle,rgba(201,168,106,.5) 0%,rgba(201,168,106,.16) 38%,rgba(27,39,31,0) 70%)"></div>
   <div class="wrap hero-grid">
     <div style="flex:1 1 520px;min-width:0">
-      <p class="kicker reveal" style="color:var(--gold);letter-spacing:.22em">Montpellier · 23 338 ventes réelles</p>
+      <p class="kicker intro" style="color:var(--gold);letter-spacing:.22em">Montpellier · 23 338 ventes réelles</p>
       <h1 class="disp bigword" style="margin:0;font-size:clamp(56px,10.5vw,164px)">Combien vaut<br><span class="outline">votre</span> logement&#8202;?</h1>
-      <p class="reveal" style="margin:30px 0 0;max-width:520px;font-size:19px;line-height:1.55;color:var(--muted-light)">Tapez une adresse. Obtenez un prix, une fourchette et l'explication de chaque euro, à partir des vraies ventes du quartier.</p>
-      <div class="reveal" style="margin-top:36px;display:flex;flex-wrap:wrap;gap:14px">
+      <p class="intro" style="margin:30px 0 0;max-width:520px;font-size:19px;line-height:1.55;color:var(--muted-light);animation-delay:.15s">Tapez une adresse. Obtenez un prix, une fourchette et l'explication de chaque euro, à partir des vraies ventes du quartier.</p>
+      <div class="intro" style="margin-top:36px;display:flex;flex-wrap:wrap;gap:14px;animation-delay:.3s">
         <a href="https://estimateur-immo-montpellier.streamlit.app" class="btn btn-gold" style="padding:18px 30px;font-size:17px">Lancer l'estimation</a>
         <a href="#demo" class="btn btn-ghost" style="padding:18px 26px;font-size:17px">Voir un exemple</a>
       </div>
